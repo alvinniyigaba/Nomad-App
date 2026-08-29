@@ -19,12 +19,14 @@ const ksh = (n) => BigInt(Math.round(n * 100));
 
 export const USERS = [
   {
-    username: 'wanjiru',
-    name: 'Wanjiru',
-    surname: 'Kamau',
+    username: 'niyigaba',
+    password: 'AppTester1',
+    pin: '1234',
+    name: 'Niyigaba Mugisha',
+    surname: 'Alvin',
     phoneMasked: '0722 ••• 418',
-    email: 'w.kamau@example.co.ke',
-    memberSince: 2024,
+    email: 'alvin.niyigaba@vinandsage.com',
+    memberSince: 2026,
     goal: { name: 'Shamba fund', target: 900000, targetDate: '2027-02-01', pledged: 180000, pledgeUnlocks: '2026-12-05', autoSave: { amount: 15000, day: 1, rail: 'M-Pesa' } },
     goalOpening: 361820,
     goalRecent: [
@@ -35,7 +37,10 @@ export const USERS = [
     liquidOpening: 220000,
   },
   {
-    username: 'dmutua', name: 'David', surname: 'Mutua', phoneMasked: '0733 ••• 205', email: 'd.mutua@example.co.ke', memberSince: 2023,
+    username: 'hisbabe',
+    password: 'AppTester2',
+    pin: '5678',
+    name: 'Namubiru Angel', surname: 'Kirabo', phoneMasked: '0733 ••• 205', email: 'namubiru.angel@example.com', memberSince: 2026,
     goal: { name: 'School fees', target: 500000, targetDate: '2026-11-01', pledged: 0, pledgeUnlocks: null, autoSave: { amount: 10000, day: 5, rail: 'M-Pesa' } },
     goalOpening: 220000,
     goalRecent: [
@@ -132,8 +137,8 @@ export async function seedDatabase(client) {
     await client.query('TRUNCATE ledger_entries, accounts, kyc_status, user_settings, sessions, users CASCADE');
 
     for (const u of USERS) {
-      const password = randomPassword();
-      const pin = randomPin();
+      const password = u.password ?? randomPassword();
+      const pin = u.pin ?? randomPin();
       const passwordHash = await bcrypt.hash(password, 10);
       const pinHash = await bcrypt.hash(pin, 10);
 
