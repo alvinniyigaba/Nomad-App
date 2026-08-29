@@ -3,14 +3,14 @@ export function fmt(n) {
 }
 
 export function ksh(n) {
-  return 'KSh ' + fmt(n);
+  return 'UGX ' + fmt(n);
 }
 
 export function pct(n, digits = 1) {
   return n.toFixed(digits) + '%';
 }
 
-/** Minor units (KSh * 100, as returned by the API) -> a display-ready major-unit number. */
+/** Minor units (UGX * 100, as returned by the API) -> a display-ready major-unit number. */
 export function fromMinor(minor) {
   return Number(BigInt(minor ?? 0)) / 100;
 }

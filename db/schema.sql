@@ -1,5 +1,5 @@
 -- Nomad customer app — core schema.
--- Money is always bigint minor units (KSh * 100). Never a float.
+-- Money is always bigint minor units (UGX * 100). Never a float.
 -- Balances are never stored directly — they are sum(amount_minor) over
 -- ledger_entries for the account. The ledger is append-only.
 

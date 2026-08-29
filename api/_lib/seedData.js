@@ -14,7 +14,7 @@ function randomPin() {
   return String(crypto.randomInt(0, 10000)).padStart(4, '0');
 }
 
-// Minor units = KSh * 100.
+// Minor units = UGX * 100.
 const ksh = (n) => BigInt(Math.round(n * 100));
 
 export const USERS = [

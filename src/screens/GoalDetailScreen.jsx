@@ -143,7 +143,7 @@ export default function GoalDetailScreen() {
       })}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 22 }}>
-        <Button variant="primary" size="md" full style={{ flex: 1 }}>
+        <Button variant="primary" size="md" full style={{ flex: 1 }} onClick={() => navigate('/deposit?account=goal')}>
           Top up
         </Button>
         <Button variant="outline" size="md" full style={{ flex: 1 }}>

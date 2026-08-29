@@ -62,9 +62,9 @@ export const investments = {
 };
 
 export const withdrawDestinations = [
-  { id: 'mpesa', label: 'M-Pesa · 0722 ••• 418', meta: 'Instant · KSh 40 fee', fee: 40 },
+  { id: 'mpesa', label: 'M-Pesa · 0722 ••• 418', meta: 'Instant · UGX 40 fee', fee: 40 },
   { id: 'bank', label: 'KCB · ••• 2043', meta: 'PesaLink · same day · free', fee: 0 },
-  { id: 'airtel', label: 'Airtel Money · 0733 ••• 907', meta: 'Instant · KSh 40 fee', fee: 40 },
+  { id: 'airtel', label: 'Airtel Money · 0733 ••• 907', meta: 'Instant · UGX 40 fee', fee: 40 },
 ];
 
 export const documents = [

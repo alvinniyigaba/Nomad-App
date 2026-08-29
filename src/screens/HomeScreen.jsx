@@ -97,7 +97,7 @@ export default function HomeScreen() {
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        <Button variant="primary" size="md" full style={{ flex: 1 }}>
+        <Button variant="primary" size="md" full style={{ flex: 1 }} onClick={() => navigate('/deposit?account=liquid')}>
           Add money
         </Button>
         <Button variant="outline" size="md" full style={{ flex: 1 }} onClick={() => navigate('/withdraw')}>

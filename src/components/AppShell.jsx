@@ -17,7 +17,7 @@ export default function AppShell({ children }) {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        height: '100dvh',
         display: 'flex',
         justifyContent: 'center',
         background: 'var(--surface-canvas)',
@@ -27,7 +27,7 @@ export default function AppShell({ children }) {
         style={{
           width: '100%',
           maxWidth: 480,
-          minHeight: '100vh',
+          height: '100%',
           background: 'var(--surface-ground)',
           display: 'flex',
           flexDirection: 'column',

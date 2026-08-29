@@ -10,6 +10,7 @@ import BorrowScreen from './screens/BorrowScreen';
 import LoanScreen from './screens/LoanScreen';
 import InvestScreen from './screens/InvestScreen';
 import WithdrawScreen from './screens/WithdrawScreen';
+import DepositScreen from './screens/DepositScreen';
 import StatementsScreen from './screens/StatementsScreen';
 import KycScreen from './screens/KycScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -96,6 +97,16 @@ function AppRoutes() {
           <RequireAuth>
             <AppShell>
               <WithdrawScreen />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/deposit"
+        element={
+          <RequireAuth>
+            <AppShell>
+              <DepositScreen />
             </AppShell>
           </RequireAuth>
         }

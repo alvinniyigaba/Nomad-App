@@ -107,7 +107,7 @@ export default function WithdrawScreen() {
         Amount
       </div>
       <div style={{ marginTop: 12, paddingBottom: 12, borderBottom: '1.5px solid var(--ink-green)', display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <span style={{ fontWeight: 300, fontSize: 15, color: 'var(--text-muted)' }}>KSh</span>
+        <span style={{ fontWeight: 300, fontSize: 15, color: 'var(--text-muted)' }}>UGX</span>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 30, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>{fmt(wd)}</span>
       </div>
       <div style={{ display: 'flex', gap: 7, marginTop: 14 }}>
