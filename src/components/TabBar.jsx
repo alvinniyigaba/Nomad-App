@@ -5,7 +5,6 @@ const TABS = [
   { label: 'SAVE', path: '/save', match: ['/save', '/save/goal'] },
   { label: 'BORROW', path: '/borrow', match: ['/borrow', '/loan'] },
   { label: 'INVEST', path: '/invest', match: ['/invest'] },
-  { label: 'DOCS', path: '/statements', match: ['/statements'] },
 ];
 
 export default function TabBar() {

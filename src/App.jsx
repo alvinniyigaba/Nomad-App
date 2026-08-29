@@ -12,6 +12,7 @@ import InvestScreen from './screens/InvestScreen';
 import WithdrawScreen from './screens/WithdrawScreen';
 import StatementsScreen from './screens/StatementsScreen';
 import KycScreen from './screens/KycScreen';
+import ProfileScreen from './screens/ProfileScreen';
 
 function RequireAuth({ children }) {
   const { authenticated } = useAppState();
@@ -112,6 +113,16 @@ function AppRoutes() {
           <RequireAuth>
             <AppShell>
               <KycScreen />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <RequireAuth>
+            <AppShell>
+              <ProfileScreen />
             </AppShell>
           </RequireAuth>
         }

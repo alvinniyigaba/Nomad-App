@@ -10,6 +10,8 @@ export function AppStateProvider({ children }) {
   const [dest, setDest] = useState('mpesa');
   const [autoSave, setAutoSave] = useState(true);
   const [emailStatements, setEmailStatements] = useState(true);
+  const [faceId, setFaceId] = useState(true);
+  const [push, setPush] = useState(true);
 
   const value = useMemo(
     () => ({
@@ -31,10 +33,14 @@ export function AppStateProvider({ children }) {
       toggleAutoSave: () => setAutoSave((v) => !v),
       emailStatements,
       toggleEmailStatements: () => setEmailStatements((v) => !v),
+      faceId,
+      toggleFaceId: () => setFaceId((v) => !v),
+      push,
+      togglePush: () => setPush((v) => !v),
 
       savingsGoal: savings.goals[0],
     }),
-    [authenticated, loanAmount, wd, dest, autoSave, emailStatements],
+    [authenticated, loanAmount, wd, dest, autoSave, emailStatements, faceId, push],
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

@@ -1,8 +1,13 @@
 export const customer = {
   name: 'Wanjiru',
+  surname: 'Kamau',
   phoneMasked: '0722 ••• 418',
   email: 'w.kamau@example.co.ke',
+  memberSince: '2024',
+  payoutAccounts: 'M-Pesa · KCB ••• 2043 · Airtel Money',
 };
+
+export const appVersion = 'v2.4';
 
 export const rates = {
   savings: 9.2, // % p.a.

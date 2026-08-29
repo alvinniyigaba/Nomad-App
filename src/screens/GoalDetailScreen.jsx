@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/ds/Button';
+import Toggle from '../components/ds/Toggle';
 import { savings, rates } from '../data/mockData';
 import { fmt, ksh } from '../utils/format';
 import { useAppState } from '../state/AppStateContext';
@@ -63,20 +64,7 @@ export default function GoalDetailScreen() {
               {ksh(goal.autoSave.amount)} · {goal.autoSave.day} · {goal.autoSave.rail}
             </div>
           </div>
-          <div
-            onClick={toggleAutoSave}
-            style={{
-              width: 46,
-              height: 27,
-              borderRadius: 14,
-              position: 'relative',
-              flex: 'none',
-              cursor: 'pointer',
-              background: autoSave ? 'var(--ink-green)' : 'var(--sand-line)',
-            }}
-          >
-            <div style={{ position: 'absolute', top: 3, width: 21, height: 21, background: 'var(--bone)', borderRadius: 11, left: autoSave ? 22 : 3 }} />
-          </div>
+          <Toggle on={autoSave} onClick={toggleAutoSave} />
         </div>
         <div
           onClick={() => navigate('/loan')}

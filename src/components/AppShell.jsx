@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import TabBar from './TabBar';
 
-const TAB_SCREENS = ['/home', '/save', '/save/goal', '/borrow', '/loan', '/invest', '/statements'];
+const TAB_SCREENS = ['/home', '/save', '/save/goal', '/borrow', '/loan', '/invest'];
 
 export default function AppShell({ children }) {
   const { pathname } = useLocation();

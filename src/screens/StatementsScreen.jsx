@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/ds/Button';
+import Toggle from '../components/ds/Toggle';
 import { documents, customer } from '../data/mockData';
 import { useAppState } from '../state/AppStateContext';
 
@@ -11,8 +12,11 @@ export default function StatementsScreen() {
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
-      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
-        DOCUMENTS
+      <div onClick={() => navigate('/profile')} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+        <div style={{ fontWeight: 300, fontSize: 20, color: 'var(--text-muted)', lineHeight: 1 }}>←</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
+          DOCUMENTS
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 7, marginTop: 20 }}>
         {FILTERS.map((f, i) => (
@@ -87,20 +91,7 @@ export default function StatementsScreen() {
             <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>Email monthly statements</div>
             <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{customer.email}</div>
           </div>
-          <div
-            onClick={toggleEmailStatements}
-            style={{
-              width: 46,
-              height: 27,
-              borderRadius: 14,
-              position: 'relative',
-              flex: 'none',
-              cursor: 'pointer',
-              background: emailStatements ? 'var(--ink-green)' : 'var(--sand-line)',
-            }}
-          >
-            <div style={{ position: 'absolute', top: 3, width: 21, height: 21, background: 'var(--bone)', borderRadius: 11, left: emailStatements ? 22 : 3 }} />
-          </div>
+          <Toggle on={emailStatements} onClick={toggleEmailStatements} />
         </div>
       </div>
 

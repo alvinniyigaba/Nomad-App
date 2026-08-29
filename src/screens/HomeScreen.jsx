@@ -9,12 +9,14 @@ import { fmt, ksh } from '../utils/format';
 export default function HomeScreen() {
   const navigate = useNavigate();
   const goalGap = savings.goals[0].target - savings.goals[0].balance <= 0 ? 0 : savings.goals[0].behindPace;
+  const initial = customer.name.trim().charAt(0).toUpperCase();
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <NomadLogo brand="group" layout="horizontal" size={13} />
         <div
+          onClick={() => navigate('/profile')}
           style={{
             position: 'relative',
             width: 40,
@@ -24,19 +26,79 @@ export default function HomeScreen() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            cursor: 'pointer',
+            background: 'var(--surface-card)',
           }}
         >
-          <div style={{ width: 13, height: 11, border: '1.2px solid var(--ink-green)', borderRadius: 2 }} />
-          <div style={{ position: 'absolute', top: 9, right: 9, width: 7, height: 7, borderRadius: 4, background: 'var(--accent-clay)' }} />
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 14, letterSpacing: '0.04em', color: 'var(--ink-green)' }}>
+            {initial}
+          </div>
+          <div
+            style={{
+              position: 'absolute',
+              top: -1,
+              right: -1,
+              width: 8,
+              height: 8,
+              borderRadius: 5,
+              background: 'var(--accent-clay)',
+              border: '1.5px solid var(--surface-ground)',
+            }}
+          />
         </div>
       </div>
 
       <div style={{ marginTop: 26, fontWeight: 300, fontSize: 23, lineHeight: 1.35, color: 'var(--text-heading)' }}>
         Good morning, {customer.name}.
       </div>
-      <div style={{ marginTop: 7, fontWeight: 300, fontSize: 13, color: 'var(--text-muted)' }}>Three things want your attention.</div>
 
-      <div style={{ marginTop: 22, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ marginTop: 20, position: 'relative', overflow: 'hidden', background: 'var(--surface-panel)', borderRadius: 8, padding: 20 }}>
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+          <TerrainPattern theme="light" width={360} height={200} />
+        </div>
+        <div style={{ position: 'relative' }}>
+          <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+            Total position
+          </div>
+          <div style={{ marginTop: 8, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>
+            {ksh(position.total)}
+          </div>
+          <div style={{ marginTop: 6, fontWeight: 400, fontSize: 12, color: 'var(--success)' }}>+{ksh(position.monthChange)} this month</div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+            <div onClick={() => navigate('/save')} style={{ flex: 1, cursor: 'pointer' }}>
+              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Saved</div>
+              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-heading)' }}>{fmt(position.saved)}</div>
+            </div>
+            <div onClick={() => navigate('/loan')} style={{ flex: 1, cursor: 'pointer' }}>
+              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Owed</div>
+              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--accent-clay)' }}>{fmt(position.owed)}</div>
+            </div>
+            <div onClick={() => navigate('/invest')} style={{ flex: 1, cursor: 'pointer' }}>
+              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Invested</div>
+              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-heading)' }}>{fmt(position.invested)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <Button variant="primary" size="md" full style={{ flex: 1 }}>
+          Add money
+        </Button>
+        <Button variant="outline" size="md" full style={{ flex: 1 }} onClick={() => navigate('/withdraw')}>
+          Withdraw
+        </Button>
+      </div>
+
+      <div style={{ margin: '22px 0 18px' }}>
+        <RouteDivider variant="straight" width={358} />
+      </div>
+
+      <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+        Needs your attention
+      </div>
+
+      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div
           onClick={() => navigate('/loan')}
           style={{
@@ -114,52 +176,10 @@ export default function HomeScreen() {
         </div>
       </div>
 
-      <div style={{ margin: '24px 0 20px' }}>
-        <RouteDivider variant="straight" width={358} />
-      </div>
-
-      <div style={{ position: 'relative', overflow: 'hidden', background: 'var(--surface-panel)', borderRadius: 8, padding: 20 }}>
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <TerrainPattern theme="light" width={360} height={200} />
-        </div>
-        <div style={{ position: 'relative' }}>
-          <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            Total position
-          </div>
-          <div style={{ marginTop: 8, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>
-            {ksh(position.total)}
-          </div>
-          <div style={{ marginTop: 6, fontWeight: 400, fontSize: 12, color: 'var(--success)' }}>+{ksh(position.monthChange)} this month</div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-            <div onClick={() => navigate('/save')} style={{ flex: 1, cursor: 'pointer' }}>
-              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Saved</div>
-              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-heading)' }}>{fmt(position.saved)}</div>
-            </div>
-            <div onClick={() => navigate('/loan')} style={{ flex: 1, cursor: 'pointer' }}>
-              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Owed</div>
-              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--accent-clay)' }}>{fmt(position.owed)}</div>
-            </div>
-            <div onClick={() => navigate('/invest')} style={{ flex: 1, cursor: 'pointer' }}>
-              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Invested</div>
-              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-heading)' }}>{fmt(position.invested)}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-        <Button variant="primary" size="md" full style={{ flex: 1 }}>
-          Add money
-        </Button>
-        <Button variant="outline" size="md" full style={{ flex: 1 }} onClick={() => navigate('/withdraw')}>
-          Withdraw
-        </Button>
-      </div>
-
       <div
         onClick={() => navigate('/kyc')}
         style={{
-          marginTop: 18,
+          marginTop: 10,
           border: '1px solid var(--accent-gold)',
           borderRadius: 6,
           padding: '14px 16px',
