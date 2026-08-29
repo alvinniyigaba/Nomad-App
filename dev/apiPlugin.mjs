@@ -22,7 +22,8 @@ export default function apiPlugin() {
       server.middlewares.use(async (req, res, next) => {
         if (!req.url.startsWith('/api/')) return next();
 
-        const [pathname] = req.url.split('?');
+        const [pathname, search] = req.url.split('?');
+        req.query = Object.fromEntries(new URLSearchParams(search ?? ''));
         const filePath = new URL('..' + pathname + '.js', import.meta.url);
 
         let mod;
