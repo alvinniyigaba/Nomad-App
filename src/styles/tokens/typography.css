@@ -1,0 +1,76 @@
+/* ============================================================
+   NOMAD GROUP · TYPOGRAPHY TOKENS
+   Cinzel  — display & wordmark (Roman inscriptional serif, all-caps).
+   Montserrat — body, labels & UI (geometric sans; 300/400/500/600).
+   ============================================================ */
+:root {
+  /* Families */
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-sans:    'Montserrat', -apple-system, 'Segoe UI', sans-serif;
+
+  /* Weights */
+  --w-light:    300; /* @kind font */
+  --w-regular:  400; /* @kind font */
+  --w-medium:   500; /* @kind font */
+  --w-semibold: 600; /* @kind font */
+
+  /* Display scale (Cinzel) — set generously, tracked wide */
+  --fs-display-xl: 70px;  /* cover wordmark */
+  --fs-display-l:  40px;  /* section hero */
+  --fs-display-m:  34px;  /* statement */
+  --fs-display-s:  24px;  /* sub-brand wordmark */
+  --fs-serif-body: 21px;  /* serif lead line */
+
+  /* Text scale (Montserrat) */
+  --fs-xl:  19px;  /* lead paragraph / emphasis */
+  --fs-l:   15px;
+  --fs-md:  14px;  /* body default */
+  --fs-sm:  13px;
+  --fs-xs:  12px;  /* fine print */
+  --fs-2xs: 10px;  /* micro labels */
+
+  /* Line heights */
+  --lh-tight:   1.1; /* @kind font */
+  --lh-snug:    1.28; /* @kind font */
+  --lh-body:    1.7; /* @kind font */
+  --lh-relaxed: 1.75; /* @kind font */
+
+  /* Letter-spacing — tracking is core to the brand voice */
+  --ls-wordmark: 0.14em; /* @kind font */ /* NOMAD GROUP lockup */
+  --ls-display:  0.05em; /* @kind font */ /* Cinzel headings */
+  --ls-eyebrow:  0.34em; /* @kind font */ /* uppercase section eyebrows */
+  --ls-label:    0.22em; /* @kind font */ /* uppercase small labels */
+  --ls-tag:      0.26em; /* @kind font */ /* sub-brand descriptor tags */
+  --ls-body:     0; /* @kind font */
+}
+
+/* ---- Type role helpers (optional utility classes) ---- */
+.nomad-wordmark {
+  font-family: var(--font-display);
+  font-weight: var(--w-medium);
+  letter-spacing: var(--ls-wordmark);
+  color: var(--text-heading);
+  line-height: var(--lh-tight);
+}
+.nomad-eyebrow {
+  font-family: var(--font-sans);
+  font-weight: var(--w-light);
+  font-size: var(--fs-sm);
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.nomad-display {
+  font-family: var(--font-display);
+  font-weight: var(--w-medium);
+  letter-spacing: var(--ls-display);
+  line-height: var(--lh-snug);
+  color: var(--text-heading);
+}
+.nomad-body {
+  font-family: var(--font-sans);
+  font-weight: var(--w-light);
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
+  color: var(--text-body);
+}

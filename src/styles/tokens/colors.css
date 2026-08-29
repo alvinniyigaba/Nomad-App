@@ -1,0 +1,84 @@
+/* ============================================================
+   NOMAD GROUP · COLOUR TOKENS
+   "Savannah Gold" palette — earth warmth over metallic sheen.
+   Base values first, then semantic aliases.
+   ============================================================ */
+:root {
+  /* ---- Core palette ---- */
+  --ink-green:      #1F4A47; /* anchor / deep pole */
+  --ink-green-deep: #1B3F3C; /* cover ground, darker layer */
+  --terrain-black:  #1E2A22; /* darkest anchor (OOH) */
+  --deep-moss:      #2D372D; /* alternate dark anchor */
+
+  --ochre-gold:     #C98A2B; /* warm pole — matte, never metallic */
+  --ochre-soft:     #D8A44E; /* lighter ochre for hovers on ink */
+  --clay-red:       #A8452E; /* energy accent, sub-brand tag */
+  --clay-soft:      #B5623C; /* pattern lines on light */
+
+  --savannah-sand:  #C7B79C; /* neutral */
+  --sand-line:      #C0A882; /* hairline dividers on light */
+  --border-sand:    #D9CBB6; /* card / hairline borders */
+
+  --bone:           #F5EEE2; /* ground */
+  --bone-warm:      #FBF7F0; /* raised card surface */
+  --bone-panel:     #EDE3D3; /* recessed panel / caption bar */
+  --crest-cream:    #EFE2CF; /* crest disc background */
+  --cover-taupe:    #C9BCA8; /* neutral canvas backdrop */
+
+  /* ---- Ink neutrals (text on light) ---- */
+  --earth-900: #22201A; /* headings on light */
+  --earth-800: #2B211A;
+  --earth-700: #5C4A3A; /* body copy */
+  --earth-500: #8A6A4F; /* muted labels / captions */
+  --earth-400: #A6906F; /* faint captions */
+
+  /* ---- On-ink neutrals (text on dark green) ---- */
+  --sage-200: #F5EEE2; /* headings on ink */
+  --sage-400: #9FC0BC; /* body on ink */
+  --sage-600: #4E756F; /* faint labels on ink */
+  --taupe-on-ink: #C7B79C;
+
+  /* ---- Feedback ---- */
+  --success: #2D6A4F;
+  --warning: #C98A2B;
+  --danger:  #A8452E;
+}
+
+/* ============================================================
+   SEMANTIC ALIASES — reference these in product work.
+   ============================================================ */
+:root {
+  /* Surfaces */
+  --surface-ground:    var(--bone);
+  --surface-card:      var(--bone-warm);
+  --surface-panel:     var(--bone-panel);
+  --surface-ink:       var(--ink-green);
+  --surface-ink-deep:  var(--ink-green-deep);
+  --surface-ink-black: var(--terrain-black);
+  --surface-crest:     var(--crest-cream);
+  --surface-canvas:    var(--cover-taupe);
+
+  /* Text on light */
+  --text-heading: var(--earth-900);
+  --text-body:    var(--earth-700);
+  --text-muted:   var(--earth-500);
+  --text-faint:   var(--earth-400);
+
+  /* Text on ink */
+  --text-on-ink:        var(--sage-200);
+  --text-on-ink-body:   var(--sage-400);
+  --text-on-ink-muted:  var(--sage-600);
+
+  /* Accents */
+  --accent-gold:   var(--ochre-gold);
+  --accent-gold-hover: var(--ochre-soft);
+  --accent-clay:   var(--clay-red);
+
+  /* Lines & borders */
+  --border-default: var(--border-sand);
+  --border-hair:    var(--sand-line);
+  --divider-gold:   var(--ochre-gold);
+
+  /* Focus */
+  --focus-ring: var(--ochre-gold);
+}

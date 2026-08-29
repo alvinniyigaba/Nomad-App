@@ -1,0 +1,23 @@
+/* ============================================================
+   NOMAD GROUP · SPACING & LAYOUT TOKENS
+   Generous, editorial rhythm. Base unit 4px.
+   ============================================================ */
+:root {
+  --space-0:  0;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  26px;   /* card inner gutter */
+  --space-7:  34px;
+  --space-8:  44px;   /* logo lockup gap */
+  --space-9:  56px;   /* section gap */
+  --space-10: 76px;   /* major section top */
+  --space-11: 92px;   /* cover padding */
+
+  /* Content widths */
+  --measure-narrow: 60ch;
+  --measure-doc:    1360px;  /* guidelines / letter width */
+  --measure-site:   1200px;  /* marketing content width */
+}

@@ -1,0 +1,39 @@
+/* ============================================================
+   NOMAD GROUP · EFFECTS — radii, borders, shadows, motion
+   The brand is matte and grounded: soft radii, hairline sand
+   borders, restrained shadows. No metallic gradients, no glow.
+   ============================================================ */
+:root {
+  /* Corner radii — gentle, never pill-round on structural cards */
+  --radius-xs: 2px;
+  --radius-sm: 4px;   /* chips, swatches, inputs */
+  --radius-md: 6px;   /* small cards */
+  --radius-lg: 8px;   /* primary cards, images, buttons-large */
+  --radius-round: 50%;/* the crest disc */
+
+  /* Borders — hairline sand is the default separator */
+  --border-width: 1px;
+  --border-hairline: 1px solid var(--border-default);
+  --border-hair-soft: 1px solid var(--border-hair);
+  --border-dashed: 1px dashed var(--border-hair);
+
+  /* Shadows — quiet, warm-tinted, low spread */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px rgba(34, 32, 26, 0.05);
+  --shadow-md: 0 6px 20px rgba(31, 74, 71, 0.08);      /* raised card */
+  --shadow-lg: 0 18px 48px rgba(31, 74, 71, 0.14);     /* modal / hover lift */
+  --shadow-inset: inset 0 0 0 1px rgba(201, 138, 43, 0.35); /* gold ring */
+
+  /* Motion — calm, no bounce; fades and short slides */
+  --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1); /* @kind other */
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+  --dur-fast:   140ms; /* @kind other */
+  --dur-base:   220ms; /* @kind other */
+  --dur-slow:   420ms; /* @kind other */
+
+  /* Interaction */
+  --hover-lift: -2px; /* @kind other */ /* cards rise slightly */
+  --press-scale: 0.98; /* @kind other */ /* buttons compress */
+  --focus-ring-width: 2px; /* @kind other */
+  --focus-ring-offset: 2px; /* @kind other */
+}

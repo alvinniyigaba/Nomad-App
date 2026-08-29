@@ -1,0 +1,10 @@
+/* ============================================================
+   NOMAD GROUP · WEBFONTS
+   Cinzel (display) + Montserrat (text) are served from Google
+   Fonts. Consumers with network access pick them up automatically.
+   NOTE: substitution flag — these are loaded from the Google CDN,
+   not bundled as local .ttf/.woff2 binaries. If offline / self-
+   hosted binaries are required, drop them into assets/fonts and
+   replace this @import with @font-face rules.
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Montserrat:wght@300;400;500;600&display=swap');

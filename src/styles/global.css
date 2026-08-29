@@ -1,0 +1,68 @@
+@import './tokens/index.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-canvas);
+  font-family: var(--font-sans);
+  color: var(--text-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--ink-green);
+}
+a:hover {
+  color: var(--accent-gold);
+}
+
+button {
+  font: inherit;
+}
+
+/* Hide scrollbars inside the app shell, matching the design's device chrome */
+.nomad-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+.nomad-scroll {
+  scrollbar-width: none;
+}
+
+@keyframes nomad-route {
+  from {
+    width: 6%;
+  }
+  to {
+    width: 100%;
+  }
+}
+@keyframes nomad-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes nomad-caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
