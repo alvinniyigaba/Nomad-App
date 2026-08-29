@@ -3,13 +3,28 @@ import NomadLogo from '../components/ds/NomadLogo';
 import RouteDivider from '../components/ds/RouteDivider';
 import TerrainPattern from '../components/ds/TerrainPattern';
 import Button from '../components/ds/Button';
-import { customer, position, savings, loan } from '../data/mockData';
-import { fmt, ksh } from '../utils/format';
+import { Loading, ErrorState } from '../components/ScreenState';
+import { position, loan } from '../data/mockData';
+import { fmt, ksh, fromMinor, formatMonthYear } from '../utils/format';
+import { paceStatus } from '../utils/pacing';
+import { useAppState } from '../state/AppStateContext';
+import { useAccounts } from '../hooks/useAccounts';
+import { useKyc } from '../hooks/useKyc';
 
 export default function HomeScreen() {
   const navigate = useNavigate();
-  const goalGap = savings.goals[0].target - savings.goals[0].balance <= 0 ? 0 : savings.goals[0].behindPace;
-  const initial = customer.name.trim().charAt(0).toUpperCase();
+  const { user } = useAppState();
+  const { status, goal, liquid, error, refetch } = useAccounts();
+  const { kyc } = useKyc();
+
+  if (status === 'loading') return <Loading />;
+  if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
+
+  // Saved is real (the ledger); invested and owed stay mock until loans and
+  // investments are wired up, so "Total position" is a deliberate blend.
+  const saved = fromMinor(goal.balanceMinor) + fromMinor(liquid.balanceMinor);
+  const total = saved + position.invested - position.owed;
+  const pace = paceStatus({ createdAt: goal.createdAt, targetDate: goal.targetDate, targetMinor: goal.targetMinor, balanceMinor: goal.balanceMinor });
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
@@ -31,7 +46,7 @@ export default function HomeScreen() {
           }}
         >
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 14, letterSpacing: '0.04em', color: 'var(--ink-green)' }}>
-            {initial}
+            {user?.initial}
           </div>
           <div
             style={{
@@ -49,7 +64,7 @@ export default function HomeScreen() {
       </div>
 
       <div style={{ marginTop: 26, fontWeight: 300, fontSize: 23, lineHeight: 1.35, color: 'var(--text-heading)' }}>
-        Good morning, {customer.name}.
+        Good morning, {user?.name}.
       </div>
 
       <div style={{ marginTop: 20, position: 'relative', overflow: 'hidden', background: 'var(--surface-panel)', borderRadius: 8, padding: 20 }}>
@@ -61,13 +76,13 @@ export default function HomeScreen() {
             Total position
           </div>
           <div style={{ marginTop: 8, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>
-            {ksh(position.total)}
+            {ksh(total)}
           </div>
           <div style={{ marginTop: 6, fontWeight: 400, fontSize: 12, color: 'var(--success)' }}>+{ksh(position.monthChange)} this month</div>
           <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
             <div onClick={() => navigate('/save')} style={{ flex: 1, cursor: 'pointer' }}>
               <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Saved</div>
-              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-heading)' }}>{fmt(position.saved)}</div>
+              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-heading)' }}>{fmt(saved)}</div>
             </div>
             <div onClick={() => navigate('/loan')} style={{ flex: 1, cursor: 'pointer' }}>
               <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Owed</div>
@@ -145,9 +160,13 @@ export default function HomeScreen() {
         >
           <div style={{ width: 11, height: 11, border: '1.4px solid var(--sand-line)', borderRadius: 6, flex: 'none' }} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 400, fontSize: 15, color: 'var(--text-heading)' }}>Shamba fund is behind pace</div>
+            <div style={{ fontWeight: 400, fontSize: 15, color: 'var(--text-heading)' }}>
+              {goal.name} is {pace?.behindMinor > 0 ? 'behind pace' : 'on pace'}
+            </div>
             <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
-              {ksh(goalGap)} short of {savings.goals[0].targetDate}
+              {pace?.behindMinor > 0
+                ? `${ksh(pace.behindMinor / 100)} short of ${formatMonthYear(goal.targetDate)}`
+                : `${pace?.pctFunded ?? 0}% funded · target ${formatMonthYear(goal.targetDate)}`}
             </div>
           </div>
           <div style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)' }}>FUND</div>
@@ -176,24 +195,26 @@ export default function HomeScreen() {
         </div>
       </div>
 
-      <div
-        onClick={() => navigate('/kyc')}
-        style={{
-          marginTop: 10,
-          border: '1px solid var(--accent-gold)',
-          borderRadius: 6,
-          padding: '14px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          cursor: 'pointer',
-        }}
-      >
-        <div style={{ fontWeight: 300, fontSize: 12, lineHeight: 1.5, color: 'var(--text-body)', flex: 1 }}>
-          Verification is at step 3 of 4. Finish it to raise your limits.
+      {kyc && !kyc.complete && (
+        <div
+          onClick={() => navigate('/kyc')}
+          style={{
+            marginTop: 10,
+            border: '1px solid var(--accent-gold)',
+            borderRadius: 6,
+            padding: '14px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            cursor: 'pointer',
+          }}
+        >
+          <div style={{ fontWeight: 300, fontSize: 12, lineHeight: 1.5, color: 'var(--text-body)', flex: 1 }}>
+            Verification is at step {kyc.step} of {kyc.totalSteps}. Finish it to raise your limits.
+          </div>
+          <div style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)' }}>OPEN</div>
         </div>
-        <div style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)' }}>OPEN</div>
-      </div>
+      )}
     </div>
   );
 }

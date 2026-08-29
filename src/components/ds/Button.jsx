@@ -10,6 +10,7 @@ export default function Button({
   theme = 'light', // 'light' | 'ink'
   full = false,
   disabled = false,
+  type = 'button',
   children,
   style = {},
   onClick,
@@ -40,7 +41,7 @@ export default function Button({
 
   return (
     <button
-      type="button"
+      type={type}
       disabled={disabled}
       onClick={onClick}
       onMouseEnter={() => setHover(true)}

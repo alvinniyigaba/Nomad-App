@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppStateProvider, useAppState } from './state/AppStateContext';
 import AppShell from './components/AppShell';
 import SplashScreen from './screens/SplashScreen';
-import LoginScreen from './screens/LoginScreen';
+import LoginGate from './screens/LoginGate';
 import HomeScreen from './screens/HomeScreen';
 import SavingsScreen from './screens/SavingsScreen';
 import GoalDetailScreen from './screens/GoalDetailScreen';
@@ -15,8 +15,11 @@ import KycScreen from './screens/KycScreen';
 import ProfileScreen from './screens/ProfileScreen';
 
 function RequireAuth({ children }) {
-  const { authenticated } = useAppState();
-  if (!authenticated) return <Navigate to="/login" replace />;
+  const { authStatus } = useAppState();
+  if (authStatus === 'loading') {
+    return <div style={{ position: 'fixed', inset: 0, background: 'var(--surface-ground)' }} />;
+  }
+  if (authStatus !== 'authenticated') return <Navigate to="/login" replace />;
   return children;
 }
 
@@ -25,7 +28,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Navigate to="/splash" replace />} />
       <Route path="/splash" element={<SplashScreen />} />
-      <Route path="/login" element={<LoginScreen />} />
+      <Route path="/login" element={<LoginGate />} />
 
       <Route
         path="/home"

@@ -2,7 +2,10 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../components/ds/Button';
 import Toggle from '../components/ds/Toggle';
 import { customer, appVersion } from '../data/mockData';
+// customer.payoutAccounts stays mock (payments aren't wired up yet); everything
+// else here comes from the authenticated user.
 import { useAppState } from '../state/AppStateContext';
+import { useKyc } from '../hooks/useKyc';
 
 function SectionLabel({ children, style = {} }) {
   return (
@@ -56,8 +59,8 @@ const Arrow = <div style={{ fontWeight: 300, fontSize: 15, color: 'var(--text-mu
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
-  const { emailStatements, toggleEmailStatements, faceId, toggleFaceId, push, togglePush, logout } = useAppState();
-  const initial = customer.name.trim().charAt(0).toUpperCase();
+  const { user, emailStatements, toggleEmailStatements, faceId, toggleFaceId, push, togglePush, lockApp } = useAppState();
+  const { kyc } = useKyc();
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
@@ -83,42 +86,44 @@ export default function ProfileScreen() {
           }}
         >
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 22, letterSpacing: '0.04em', color: 'var(--accent-gold)' }}>
-            {initial}
+            {user?.initial}
           </div>
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 400, fontSize: 18, color: 'var(--text-heading)' }}>
-            {customer.name} {customer.surname}
+            {user?.name} {user?.surname}
           </div>
           <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
-            {customer.phoneMasked} · member since {customer.memberSince}
+            {user?.phoneMasked} · member since {user?.memberSince}
           </div>
         </div>
       </div>
 
-      <div
-        onClick={() => navigate('/kyc')}
-        style={{
-          marginTop: 18,
-          border: '1px solid var(--accent-gold)',
-          borderRadius: 6,
-          padding: '14px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          cursor: 'pointer',
-        }}
-      >
-        <div style={{ fontWeight: 300, fontSize: 12, lineHeight: 1.5, color: 'var(--text-body)', flex: 1 }}>
-          Verification is at step 3 of 4. Finish it to raise your limits.
+      {kyc && !kyc.complete && (
+        <div
+          onClick={() => navigate('/kyc')}
+          style={{
+            marginTop: 18,
+            border: '1px solid var(--accent-gold)',
+            borderRadius: 6,
+            padding: '14px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            cursor: 'pointer',
+          }}
+        >
+          <div style={{ fontWeight: 300, fontSize: 12, lineHeight: 1.5, color: 'var(--text-body)', flex: 1 }}>
+            Verification is at step {kyc.step} of {kyc.totalSteps}. Finish it to raise your limits.
+          </div>
+          <div style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)' }}>OPEN</div>
         </div>
-        <div style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)' }}>OPEN</div>
-      </div>
+      )}
 
       <SectionLabel style={{ marginTop: 26 }}>Your profile</SectionLabel>
       <SettingsCard>
         <SettingsRow title="Personal details" meta="Name, date of birth, address" right={Arrow} onClick={() => {}} />
-        <SettingsRow title="Phone and email" meta={customer.email} right={Arrow} onClick={() => {}} />
+        <SettingsRow title="Phone and email" meta={user?.email} right={Arrow} onClick={() => {}} />
         <SettingsRow title="Payout accounts" meta={customer.payoutAccounts} right={Arrow} onClick={() => {}} last />
       </SettingsCard>
 
@@ -160,7 +165,7 @@ export default function ProfileScreen() {
         />
         <SettingsRow
           title="Monthly statements by email"
-          meta={customer.email}
+          meta={user?.email}
           right={<Toggle on={emailStatements} onClick={toggleEmailStatements} />}
         />
         <SettingsRow title="Change PIN" right={Arrow} onClick={() => {}} />
@@ -182,8 +187,8 @@ export default function ProfileScreen() {
           variant="ghost"
           size="md"
           full
-          onClick={() => {
-            logout();
+          onClick={async () => {
+            await lockApp();
             navigate('/login', { replace: true });
           }}
         >

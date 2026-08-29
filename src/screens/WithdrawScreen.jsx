@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/ds/Button';
-import { withdrawSource, withdrawDestinations, savings } from '../data/mockData';
-import { fmt, ksh } from '../utils/format';
+import { Loading, ErrorState } from '../components/ScreenState';
+import { withdrawDestinations } from '../data/mockData';
+import { fmt, ksh, fromMinor } from '../utils/format';
 import { useAppState } from '../state/AppStateContext';
+import { useAccounts } from '../hooks/useAccounts';
 
 function chipStyle(active) {
   return {
@@ -23,11 +26,45 @@ function chipStyle(active) {
 export default function WithdrawScreen() {
   const navigate = useNavigate();
   const { wd, setWd, dest, setDest } = useAppState();
-  const pledgedGoal = savings.goals[0];
+  const { status, goal, liquid, error, refetch } = useAccounts();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  const available = liquid ? fromMinor(liquid.balanceMinor) : 0;
+  const presets = [10000, 45000].filter((p) => p < available);
+
+  useEffect(() => {
+    if (status === 'ready' && wd > available) setWd(Math.min(10000, available));
+  }, [status, available]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (status === 'loading') return <Loading />;
+  if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
 
   const destination = withdrawDestinations.find((d) => d.id === dest);
   const fee = destination.fee;
   const receive = Math.max(0, wd - fee);
+
+  async function submit() {
+    setSubmitting(true);
+    setSubmitError('');
+    const res = await fetch('/api/withdraw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: liquid.id,
+        amountMinor: Math.round(wd * 100),
+        rail: destination.label,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setSubmitError(data.error ?? 'Withdrawal failed');
+      setSubmitting(false);
+      return;
+    }
+    navigate('/home');
+  }
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
@@ -55,14 +92,16 @@ export default function WithdrawScreen() {
         }}
       >
         <div>
-          <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>{withdrawSource.accountName}</div>
-          <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{ksh(withdrawSource.available)} available</div>
+          <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>{liquid.name}</div>
+          <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{ksh(available)} available</div>
         </div>
         <div style={{ fontWeight: 300, fontSize: 15, color: 'var(--text-muted)' }}>⌄</div>
       </div>
-      <div style={{ marginTop: 10, fontWeight: 300, fontSize: 11, lineHeight: 1.6, color: 'var(--text-faint)' }}>
-        {pledgedGoal.name} is unavailable — {ksh(pledgedGoal.pledged)} is pledged against your loan.
-      </div>
+      {goal && Number(goal.pledgedMinor) > 0 && (
+        <div style={{ marginTop: 10, fontWeight: 300, fontSize: 11, lineHeight: 1.6, color: 'var(--text-faint)' }}>
+          {goal.name} is unavailable — {ksh(fromMinor(goal.pledgedMinor))} is pledged against your loan.
+        </div>
+      )}
 
       <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
         Amount
@@ -72,12 +111,12 @@ export default function WithdrawScreen() {
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 30, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>{fmt(wd)}</span>
       </div>
       <div style={{ display: 'flex', gap: 7, marginTop: 14 }}>
-        {withdrawSource.presets.map((amt) => (
+        {presets.map((amt) => (
           <div key={amt} onClick={() => setWd(amt)} style={chipStyle(wd === amt)}>
             {fmt(amt)}
           </div>
         ))}
-        <div onClick={() => setWd(withdrawSource.available)} style={chipStyle(wd === withdrawSource.available)}>
+        <div onClick={() => setWd(available)} style={chipStyle(wd === available)}>
           ALL
         </div>
       </div>
@@ -137,9 +176,12 @@ export default function WithdrawScreen() {
         <span style={{ fontWeight: 300, fontSize: 13, color: 'var(--text-body)' }}>You receive</span>
         <span style={{ fontWeight: 500, fontSize: 15, color: 'var(--text-heading)' }}>{ksh(receive)}</span>
       </div>
+      {submitError && (
+        <div style={{ marginTop: 12, fontWeight: 400, fontSize: 12, color: 'var(--accent-clay)' }}>{submitError}</div>
+      )}
       <div style={{ marginTop: 20 }}>
-        <Button variant="primary" size="lg" full onClick={() => navigate('/home')}>
-          Withdraw {ksh(wd)}
+        <Button variant="primary" size="lg" full onClick={submit} disabled={submitting || wd <= 0}>
+          {submitting ? 'Withdrawing…' : `Withdraw ${ksh(wd)}`}
         </Button>
       </div>
     </div>

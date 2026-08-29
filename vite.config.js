@@ -1,11 +1,13 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import apiPlugin from './dev/apiPlugin.mjs'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    apiPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/favicon-16.png', 'icons/favicon-32.png', 'icons/apple-touch-icon.png'],

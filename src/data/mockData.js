@@ -14,44 +14,12 @@ export const rates = {
   loan: 13.5, // % p.a.
 };
 
+// Saved is real (the ledger, via /api/accounts) — owed and invested stay
+// mock until loans and investments are wired up. See HomeScreen.
 export const position = {
-  total: 1284500,
   monthChange: 30120,
-  saved: 640000,
   owed: 144000,
   invested: 788500,
-};
-
-export const savings = {
-  balance: 640000,
-  goals: [
-    {
-      id: 'shamba-fund',
-      name: 'Shamba fund',
-      balance: 420000,
-      target: 900000,
-      targetDate: 'February 2027',
-      pctFunded: 47,
-      behindPace: 18000,
-      interestEarned: 21340,
-      pledged: 180000,
-      pledgeUnlocks: '5 December',
-      autoSave: { amount: 15000, day: '1st of the month', rail: 'M-Pesa' },
-      activity: [
-        { label: 'Auto-save', meta: '1 August · M-Pesa', amount: 15000 },
-        { label: 'Interest', meta: '31 July', amount: 3180 },
-        { label: 'Top-up', meta: '18 July · PesaLink', amount: 40000 },
-      ],
-    },
-    {
-      id: 'emergency',
-      name: 'Emergency',
-      balance: 220000,
-      target: null,
-      note: 'No target · fully liquid',
-      fullyLiquid: true,
-    },
-  ],
 };
 
 export const loan = {
@@ -93,12 +61,6 @@ export const investments = {
   ],
 };
 
-export const withdrawSource = {
-  accountName: 'Emergency savings',
-  available: 220000,
-  presets: [10000, 45000],
-};
-
 export const withdrawDestinations = [
   { id: 'mpesa', label: 'M-Pesa · 0722 ••• 418', meta: 'Instant · KSh 40 fee', fee: 40 },
   { id: 'bank', label: 'KCB · ••• 2043', meta: 'PesaLink · same day · free', fee: 0 },
@@ -111,10 +73,3 @@ export const documents = [
   { title: 'Loan agreement', meta: 'Signed 5 February · PDF' },
   { title: 'Withholding tax certificate', meta: 'FY 2025 · KRA · PDF' },
 ];
-
-export const kyc = {
-  step: 3,
-  totalSteps: 4,
-  phoneVerified: '0722 ••• 418 · verified',
-  idMatched: '•••••• 7431 · matched',
-};

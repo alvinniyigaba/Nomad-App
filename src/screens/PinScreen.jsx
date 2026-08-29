@@ -2,7 +2,6 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NomadLogo from '../components/ds/NomadLogo';
 import TerrainPattern from '../components/ds/TerrainPattern';
-import { customer } from '../data/mockData';
 import { useAppState } from '../state/AppStateContext';
 
 const DIGIT_STYLE = {
@@ -26,38 +25,62 @@ const ACTION_STYLE = {
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'face', '0', 'del'];
 
-export default function LoginScreen() {
+export default function PinScreen() {
   const [pin, setPin] = useState('');
+  const [status, setStatus] = useState('idle'); // 'idle' | 'checking' | 'wrong' | 'locked'
+  const [attemptsLeft, setAttemptsLeft] = useState(null);
   const navigate = useNavigate();
-  const { login } = useAppState();
-  const unlockTimer = useRef(null);
+  const { user, verifyPin } = useAppState();
+  const resetTimer = useRef(null);
 
-  function unlock(delay) {
-    unlockTimer.current = setTimeout(() => {
-      login();
+  async function submitPin(candidate) {
+    setStatus('checking');
+    const result = await verifyPin(candidate);
+    if (result.ok) {
       navigate('/home', { replace: true });
-    }, delay);
+      return;
+    }
+    if (result.locked) {
+      setStatus('locked');
+      resetTimer.current = setTimeout(() => navigate('/login', { replace: true }), 900);
+      return;
+    }
+    setAttemptsLeft(result.attemptsLeft);
+    setStatus('wrong');
+    resetTimer.current = setTimeout(() => {
+      setPin('');
+      setStatus('idle');
+    }, 500);
   }
 
   function pressDigit(d) {
     return () => {
+      if (status === 'checking' || status === 'locked') return;
       const next = (pin + d).slice(0, 4);
       setPin(next);
-      if (next.length === 4) unlock(340);
+      if (next.length === 4) submitPin(next);
     };
   }
   function pressDelete() {
+    if (status === 'checking' || status === 'locked') return;
     setPin((p) => p.slice(0, -1));
   }
-  function pressFaceId() {
-    setPin('1234');
-    unlock(420);
-  }
+  // Decorative until real device biometrics are wired up.
+  function pressFaceId() {}
 
   const pinMask = '•'.repeat(pin.length);
   const pinFill = (pin.length / 4) * 100 + '%';
-  const pinNote = pin.length === 4 ? 'Unlocking' : 4 - pin.length + ' digits left';
-  const pinNoteColor = pin.length === 4 ? 'var(--accent-gold)' : 'var(--taupe-on-ink)';
+  const pinNote =
+    status === 'locked'
+      ? 'Too many attempts'
+      : status === 'wrong'
+        ? `Incorrect PIN · ${attemptsLeft} left`
+        : status === 'checking'
+          ? 'Checking'
+          : pin.length === 4
+            ? 'Unlocking'
+            : 4 - pin.length + ' digits left';
+  const pinNoteColor = status === 'wrong' || status === 'locked' ? 'var(--accent-clay)' : pin.length === 4 ? 'var(--accent-gold)' : 'var(--taupe-on-ink)';
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'var(--surface-ink)', overflow: 'hidden' }}>
@@ -82,7 +105,7 @@ export default function LoginScreen() {
           WELCOME BACK
         </div>
         <div style={{ marginTop: 12, fontWeight: 300, fontSize: 13, lineHeight: 1.7, color: 'var(--text-on-ink-body)' }}>
-          Enter your four-digit PIN, {customer.name}. The number on this device is {customer.phoneMasked}.
+          Enter your four-digit PIN, {user?.name}. The number on this device is {user?.phoneMasked}.
         </div>
 
         <div style={{ marginTop: 38 }}>

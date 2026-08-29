@@ -1,14 +1,14 @@
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/ds/Button';
 import Toggle from '../components/ds/Toggle';
-import { documents, customer } from '../data/mockData';
+import { documents } from '../data/mockData';
 import { useAppState } from '../state/AppStateContext';
 
 const FILTERS = ['ALL', 'SAVINGS', 'LOAN', 'FUNDS'];
 
 export default function StatementsScreen() {
   const navigate = useNavigate();
-  const { emailStatements, toggleEmailStatements, logout } = useAppState();
+  const { user, emailStatements, toggleEmailStatements, lockApp } = useAppState();
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
@@ -89,7 +89,7 @@ export default function StatementsScreen() {
         >
           <div>
             <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>Email monthly statements</div>
-            <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{customer.email}</div>
+            <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{user?.email}</div>
           </div>
           <Toggle on={emailStatements} onClick={toggleEmailStatements} />
         </div>
@@ -100,8 +100,8 @@ export default function StatementsScreen() {
           variant="ghost"
           size="md"
           full
-          onClick={() => {
-            logout();
+          onClick={async () => {
+            await lockApp();
             navigate('/login', { replace: true });
           }}
         >
