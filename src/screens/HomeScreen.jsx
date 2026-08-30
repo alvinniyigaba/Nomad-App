@@ -14,15 +14,17 @@ import { useKyc } from '../hooks/useKyc';
 export default function HomeScreen() {
   const navigate = useNavigate();
   const { user } = useAppState();
-  const { status, goal, liquid, error, refetch } = useAccounts();
+  const { status, goal, liquid, groupGoals, error, refetch } = useAccounts();
   const { kyc } = useKyc();
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
 
-  // Saved is real (the ledger); invested and owed stay mock until loans and
-  // investments are wired up, so "Total position" is a deliberate blend.
-  const saved = fromMinor(goal.balanceMinor) + fromMinor(liquid.balanceMinor);
+  // Saved is real (the ledger, including group goals); invested and owed
+  // stay mock until loans and investments are wired up, so "Total position"
+  // is a deliberate blend. Same formula as PositionSummaryScreen — keep
+  // them in sync or the two screens' totals will silently diverge.
+  const saved = fromMinor(goal.balanceMinor) + fromMinor(liquid.balanceMinor) + groupGoals.reduce((sum, g) => sum + fromMinor(g.balanceMinor), 0);
   const total = saved + position.invested - position.owed;
   const pace = paceStatus({ createdAt: goal.createdAt, targetDate: goal.targetDate, targetMinor: goal.targetMinor, balanceMinor: goal.balanceMinor });
 
