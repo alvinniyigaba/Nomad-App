@@ -76,7 +76,7 @@ export default function SplashScreen() {
           color: 'var(--sage-600)',
         }}
       >
-        Nomad Ventures LLP · Nairobi
+        Building a Better Africa
       </div>
     </div>
   );

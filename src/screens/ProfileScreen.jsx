@@ -196,7 +196,7 @@ export default function ProfileScreen() {
         </Button>
       </div>
       <div style={{ marginTop: 16, textAlign: 'center', fontWeight: 300, fontSize: 11, lineHeight: 1.6, color: 'var(--text-faint)' }}>
-        Nomad Ventures LLP · Nairobi · {appVersion}
+        Building a Better Africa · {appVersion}
       </div>
     </div>
   );
