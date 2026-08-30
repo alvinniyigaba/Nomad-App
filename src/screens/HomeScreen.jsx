@@ -5,7 +5,7 @@ import TerrainPattern from '../components/ds/TerrainPattern';
 import Button from '../components/ds/Button';
 import { Loading, ErrorState } from '../components/ScreenState';
 import { position, loan } from '../data/mockData';
-import { fmt, ksh, fromMinor, formatMonthYear, capitalize } from '../utils/format';
+import { fmt, ksh, fromMinor, formatMonthYear, capitalize, greeting } from '../utils/format';
 import { paceStatus } from '../utils/pacing';
 import { useAppState } from '../state/AppStateContext';
 import { useAccounts } from '../hooks/useAccounts';
@@ -64,7 +64,7 @@ export default function HomeScreen() {
       </div>
 
       <div style={{ marginTop: 26, fontWeight: 300, fontSize: 23, lineHeight: 1.35, color: 'var(--text-heading)' }}>
-        Good morning, {capitalize(user?.username)}.
+        {greeting()}, {capitalize(user?.username)}.
       </div>
 
       <div style={{ marginTop: 20, position: 'relative', overflow: 'hidden', background: 'var(--surface-panel)', borderRadius: 8, padding: 20 }}>

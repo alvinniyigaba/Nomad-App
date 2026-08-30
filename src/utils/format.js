@@ -10,6 +10,14 @@ export function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
+/** Greeting based on the device's local clock, not the server's. */
+export function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export function pct(n, digits = 1) {
   return n.toFixed(digits) + '%';
 }
