@@ -113,7 +113,7 @@ export default function PasswordScreen() {
 
         <div style={{ flex: 1, minHeight: 20 }} />
         <div style={{ textAlign: 'center', fontWeight: 300, fontSize: 9, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--sage-600)' }}>
-          Nomad Ventures LLP · Nairobi
+          Building a Better Africa
         </div>
       </form>
     </div>
