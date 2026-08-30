@@ -1,20 +1,31 @@
-// Durable admin utility (unlike the one-time setup/relabel scripts, this one
-// stays) for managing external savings/investment products on a user's
-// behalf — these are disclosed by the user to Nomad and entered here rather
-// than self-serve, to keep the data clean. Gated by ADMIN_TOKEN, set as a
-// Vercel environment variable (never hardcoded/committed).
-import { query } from '../_lib/db.js';
+// Durable admin utility, gated by ADMIN_TOKEN (set as a Vercel environment
+// variable, never hardcoded/committed). Combined into one file — Vercel's
+// Hobby plan caps Serverless Functions at 12, so admin endpoints share a
+// single route dispatched by ?resource=.
+//
+// resource=migrate (GET): applies db/schema.sql (idempotent) to production.
+// One-time in spirit — safe to leave, since re-running it is a no-op.
+//
+// resource=external-holdings (GET/POST/PATCH/DELETE): manages a user's
+// savings/investment products Nomad doesn't manage. Entered here rather
+// than self-serve, after the user discloses them to Nomad, to keep the
+// data clean.
+import { readFileSync } from 'fs';
+import { db, query } from '../_lib/db.js';
 
 async function resolveUserId(username) {
   const { rows } = await query('SELECT id FROM users WHERE username = $1', [username.trim().toLowerCase()]);
   return rows[0]?.id ?? null;
 }
 
-export default async function handler(req, res) {
-  if (req.query.token !== process.env.ADMIN_TOKEN || !process.env.ADMIN_TOKEN) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+async function handleMigrate(req, res) {
+  const schemaPath = new URL('../../db/schema.sql', import.meta.url);
+  const schema = readFileSync(schemaPath, 'utf-8');
+  await db().query(schema);
+  return res.status(200).json({ ok: true, message: 'Schema applied.' });
+}
 
+async function handleExternalHoldings(req, res) {
   if (req.method === 'GET') {
     const { username } = req.query;
     if (!username) return res.status(400).json({ error: 'username query param is required' });
@@ -72,4 +83,14 @@ export default async function handler(req, res) {
   }
 
   return res.status(405).json({ error: 'Method not allowed' });
+}
+
+export default async function handler(req, res) {
+  if (req.query.token !== process.env.ADMIN_TOKEN || !process.env.ADMIN_TOKEN) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  if (req.query.resource === 'migrate') return handleMigrate(req, res);
+  if (req.query.resource === 'external-holdings') return handleExternalHoldings(req, res);
+  return res.status(400).json({ error: 'Unknown resource. Use ?resource=migrate or ?resource=external-holdings' });
 }

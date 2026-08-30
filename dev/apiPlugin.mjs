@@ -24,15 +24,21 @@ export default function apiPlugin() {
 
         const [pathname, search] = req.url.split('?');
         req.query = Object.fromEntries(new URLSearchParams(search ?? ''));
-        const filePath = new URL('..' + pathname + '.js', import.meta.url);
+        // Mirrors Vercel's routing: /api/admin resolves to api/admin.js, or
+        // api/admin/index.js if that doesn't exist.
+        const candidates = [new URL('..' + pathname + '.js', import.meta.url), new URL('..' + pathname + '/index.js', import.meta.url)];
 
         let mod;
-        try {
-          readFileSync(filePath); // throws if it doesn't exist -> fall through to next()
-          mod = await server.ssrLoadModule(filePath.pathname);
-        } catch {
-          return next();
+        for (const filePath of candidates) {
+          try {
+            readFileSync(filePath); // throws if it doesn't exist -> try the next candidate
+            mod = await server.ssrLoadModule(filePath.pathname);
+            break;
+          } catch {
+            continue;
+          }
         }
+        if (!mod) return next();
 
         const rawBody = await readBody(req);
         const contentType = req.headers['content-type'] || '';

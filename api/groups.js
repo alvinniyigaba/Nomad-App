@@ -1,17 +1,24 @@
 import { requireFullSession } from './_lib/auth.js';
-import { withTransaction } from './_lib/db.js';
+import { query, withTransaction } from './_lib/db.js';
 
 /**
- * Creates a group savings goal. The caller is always an admin (even if they
- * list themselves with a different role in `members`) — someone has to be
- * able to administer the goal they just created. Any authenticated user can
- * call this; membership isn't restricted to a fixed list of groups.
+ * GET: other pilot users, for the group-goal member picker (username only —
+ * no PII). POST: creates a group savings goal. The caller is always an
+ * admin (even if they list themselves with a different role in `members`)
+ * — someone has to be able to administer the goal they just created. Any
+ * authenticated user can call this; membership isn't restricted to a fixed
+ * list of groups.
  */
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
   const session = await requireFullSession(req, res);
   if (!session) return;
+
+  if (req.method === 'GET') {
+    const { rows } = await query('SELECT username FROM users WHERE id != $1 ORDER BY username', [session.user_id]);
+    return res.status(200).json({ users: rows.map((r) => r.username) });
+  }
+
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { name, targetMinor, targetDate, members } = req.body ?? {};
   if (typeof name !== 'string' || !name.trim()) {

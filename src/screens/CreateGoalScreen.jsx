@@ -42,7 +42,7 @@ export default function CreateGoalScreen() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('/api/users')
+    fetch('/api/groups')
       .then((r) => r.json())
       .then((d) => setUsers(d.users))
       .catch(() => setUsers([]));
