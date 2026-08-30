@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Loading, ErrorState } from '../components/ScreenState';
+import TerrainPattern from '../components/ds/TerrainPattern';
 import { position } from '../data/mockData';
 import { fmt, ksh, fromMinor } from '../utils/format';
 import { useAppState } from '../state/AppStateContext';
@@ -47,10 +48,17 @@ export default function PositionSummaryScreen() {
         </div>
       </div>
 
-      <div style={{ marginTop: 22, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>
-        {ksh(total)}
+      <div style={{ marginTop: 20, position: 'relative', overflow: 'hidden', background: 'var(--surface-ink)', border: '1px solid rgba(201,138,43,0.28)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-md)' }}>
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+          <TerrainPattern theme="ink" width={360} height={200} />
+        </div>
+        <div style={{ position: 'relative' }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-on-ink)' }}>
+            {ksh(total)}
+          </div>
+          <div style={{ marginTop: 6, fontWeight: 400, fontSize: 12, color: 'var(--accent-gold)' }}>+{ksh(position.monthChange)} this month</div>
+        </div>
       </div>
-      <div style={{ marginTop: 6, fontWeight: 400, fontSize: 12, color: 'var(--success)' }}>+{ksh(position.monthChange)} this month</div>
 
       <SectionLabel>Savings</SectionLabel>
       <div onClick={() => navigate('/save/goal')} style={{ cursor: 'pointer' }}>
