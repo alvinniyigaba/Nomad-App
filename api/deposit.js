@@ -1,6 +1,6 @@
 import { requireFullSession } from './_lib/auth.js';
-import { query } from './_lib/db.js';
 import { getBalanceMinor, postEntry } from './_lib/ledger.js';
+import { getAccessibleAccount } from './_lib/access.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -14,8 +14,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'accountId and a positive amountMinor are required' });
   }
 
-  const { rows } = await query('SELECT id FROM accounts WHERE id = $1 AND user_id = $2', [accountId, session.user_id]);
-  if (!rows[0]) return res.status(404).json({ error: 'Account not found' });
+  // Any member of a group goal can contribute — only withdrawals are admin-gated.
+  const { account } = await getAccessibleAccount(accountId, session.user_id);
+  if (!account) return res.status(404).json({ error: 'Account not found' });
 
   const entry = await postEntry({
     accountId,

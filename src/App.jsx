@@ -11,6 +11,8 @@ import LoanScreen from './screens/LoanScreen';
 import InvestScreen from './screens/InvestScreen';
 import WithdrawScreen from './screens/WithdrawScreen';
 import DepositScreen from './screens/DepositScreen';
+import CreateGoalScreen from './screens/CreateGoalScreen';
+import PositionSummaryScreen from './screens/PositionSummaryScreen';
 import StatementsScreen from './screens/StatementsScreen';
 import KycScreen from './screens/KycScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -97,6 +99,26 @@ function AppRoutes() {
           <RequireAuth>
             <AppShell>
               <WithdrawScreen />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/position"
+        element={
+          <RequireAuth>
+            <AppShell>
+              <PositionSummaryScreen />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/save/new"
+        element={
+          <RequireAuth>
+            <AppShell>
+              <CreateGoalScreen />
             </AppShell>
           </RequireAuth>
         }

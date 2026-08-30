@@ -1,9 +1,10 @@
 import { requireFullSession } from './_lib/auth.js';
 import { query } from './_lib/db.js';
-import { getBalancesForUser, getEntriesForAccount, getSumByKind } from './_lib/ledger.js';
+import { getBalanceMinor, getEntriesForAccount, getSumByKind, getContributionsByAccount } from './_lib/ledger.js';
+import { getAccessibleAccount, getAccountMembers } from './_lib/access.js';
 
-function serializeAccount(row, balanceMinor, activity, interestEarnedMinor) {
-  return {
+async function serializeAccount(row, userId, balanceMinor, activity, interestEarnedMinor) {
+  const base = {
     id: row.id,
     kind: row.kind,
     name: row.name,
@@ -18,6 +19,7 @@ function serializeAccount(row, balanceMinor, activity, interestEarnedMinor) {
     autoSaveRail: row.auto_save_rail,
     pledgedMinor: row.pledged_minor.toString(),
     pledgeUnlocksDate: row.pledge_unlocks_date,
+    isGroup: row.is_group,
     activity: activity.map((e) => ({
       id: e.id,
       amountMinor: e.amount_minor.toString(),
@@ -27,6 +29,18 @@ function serializeAccount(row, balanceMinor, activity, interestEarnedMinor) {
       createdAt: e.created_at,
     })),
   };
+  if (!row.is_group) return base;
+
+  const [members, contributions] = await Promise.all([
+    getAccountMembers(row.id),
+    getContributionsByAccount(row.id),
+  ]);
+  const myRole = members.find((m) => m.userId === userId)?.role ?? null;
+  return {
+    ...base,
+    myRole,
+    members: members.map((m) => ({ username: m.username, role: m.role, contributionMinor: (contributions[m.userId] ?? 0n).toString() })),
+  };
 }
 
 export default async function handler(req, res) {
@@ -34,18 +48,22 @@ export default async function handler(req, res) {
   if (!session) return;
 
   if (req.method === 'GET') {
-    const { rows: accounts } = await query('SELECT * FROM accounts WHERE user_id = $1 ORDER BY kind DESC', [
-      session.user_id,
-    ]);
-    const balances = await getBalancesForUser(session.user_id);
+    const { rows: accounts } = await query(
+      `SELECT a.* FROM accounts a
+       WHERE (a.is_group = false AND a.user_id = $1)
+          OR (a.is_group = true AND EXISTS (SELECT 1 FROM account_members m WHERE m.account_id = a.id AND m.user_id = $1))
+       ORDER BY a.is_group ASC, a.kind DESC`,
+      [session.user_id],
+    );
 
     const serialized = await Promise.all(
       accounts.map(async (a) => {
-        const [activity, interestEarned] = await Promise.all([
+        const [balance, activity, interestEarned] = await Promise.all([
+          getBalanceMinor(a.id),
           getEntriesForAccount(a.id, 8),
           getSumByKind(a.id, 'interest'),
         ]);
-        return serializeAccount(a, balances[a.id] ?? 0n, activity, interestEarned);
+        return serializeAccount(a, session.user_id, balance, activity, interestEarned);
       }),
     );
     return res.status(200).json({ accounts: serialized });
@@ -56,11 +74,11 @@ export default async function handler(req, res) {
     if (typeof accountId !== 'string' || typeof autoSaveEnabled !== 'boolean') {
       return res.status(400).json({ error: 'accountId and autoSaveEnabled are required' });
     }
-    const { rowCount } = await query(
-      'UPDATE accounts SET auto_save_enabled = $1 WHERE id = $2 AND user_id = $3',
-      [autoSaveEnabled, accountId, session.user_id],
-    );
-    if (rowCount === 0) return res.status(404).json({ error: 'Account not found' });
+    const { account, forbidden } = await getAccessibleAccount(accountId, session.user_id, { requireAdmin: true });
+    if (!account) return res.status(404).json({ error: 'Account not found' });
+    if (forbidden) return res.status(403).json({ error: 'Only a group admin can change this' });
+
+    await query('UPDATE accounts SET auto_save_enabled = $1 WHERE id = $2', [autoSaveEnabled, accountId]);
     return res.status(200).json({ ok: true });
   }
 

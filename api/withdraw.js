@@ -1,6 +1,6 @@
 import { requireFullSession } from './_lib/auth.js';
-import { query } from './_lib/db.js';
 import { getBalanceMinor, postEntry } from './_lib/ledger.js';
+import { getAccessibleAccount } from './_lib/access.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -14,9 +14,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'accountId and a positive amountMinor are required' });
   }
 
-  const { rows } = await query('SELECT * FROM accounts WHERE id = $1 AND user_id = $2', [accountId, session.user_id]);
-  const account = rows[0];
+  // Individual accounts: owner-only (role 'owner'). Group goals: admin-only.
+  const { account, forbidden } = await getAccessibleAccount(accountId, session.user_id, { requireAdmin: true });
   if (!account) return res.status(404).json({ error: 'Account not found' });
+  if (forbidden) return res.status(403).json({ error: 'Only a group admin can withdraw from this goal' });
 
   const balance = await getBalanceMinor(accountId);
   const available = balance - BigInt(account.pledged_minor);

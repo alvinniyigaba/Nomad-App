@@ -64,7 +64,7 @@ function RadioRow({ title, meta, selected, onClick }) {
 export default function DepositScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { status, goal, liquid, error, refetch } = useAccounts();
+  const { status, goal, liquid, groupGoals, accounts, error, refetch } = useAccounts();
   const [accountId, setAccountId] = useState(null);
   const [amount, setAmount] = useState(PRESETS[0]);
   const [rail, setRail] = useState(rails[0].id);
@@ -75,9 +75,10 @@ export default function DepositScreen() {
     if (status !== 'ready' || accountId) return;
     const preferred = searchParams.get('account');
     if (preferred === 'liquid' && liquid) setAccountId(liquid.id);
+    else if (preferred && accounts.find((a) => a.id === preferred)) setAccountId(preferred);
     else if (goal) setAccountId(goal.id);
     else if (liquid) setAccountId(liquid.id);
-  }, [status, goal, liquid, searchParams, accountId]);
+  }, [status, goal, liquid, accounts, searchParams, accountId]);
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
@@ -135,6 +136,15 @@ export default function DepositScreen() {
             onClick={() => setAccountId(liquid.id)}
           />
         )}
+        {groupGoals.map((g) => (
+          <RadioRow
+            key={g.id}
+            title={`${g.name} (group)`}
+            meta={`${ksh(fromMinor(g.balanceMinor))} saved`}
+            selected={accountId === g.id}
+            onClick={() => setAccountId(g.id)}
+          />
+        ))}
       </div>
 
       <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>

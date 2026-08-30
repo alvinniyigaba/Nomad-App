@@ -10,7 +10,7 @@ import { useAccounts } from '../hooks/useAccounts';
 export default function SavingsScreen() {
   const navigate = useNavigate();
   const savingsRateLabel = rates.savings.toFixed(1) + '% p.a.';
-  const { status, goal, liquid, error, refetch } = useAccounts();
+  const { status, goal, liquid, groupGoals, error, refetch } = useAccounts();
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
@@ -71,6 +71,42 @@ export default function SavingsScreen() {
         </div>
       </div>
 
+      {groupGoals.length > 0 && (
+        <>
+          <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+            Group goals
+          </div>
+          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {groupGoals.map((g) => {
+              const gBalance = fromMinor(g.balanceMinor);
+              const gPace = paceStatus({ createdAt: g.createdAt, targetDate: g.targetDate, targetMinor: g.targetMinor, balanceMinor: g.balanceMinor });
+              return (
+                <div
+                  key={g.id}
+                  onClick={() => navigate(`/save/goal?account=${g.id}`)}
+                  style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ fontWeight: 400, fontSize: 16, color: 'var(--text-heading)' }}>{g.name}</div>
+                      <Badge variant="outline">{g.myRole === 'admin' ? 'Admin' : 'Member'}</Badge>
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 17, color: 'var(--text-heading)' }}>{fmt(gBalance)}</div>
+                  </div>
+                  <div style={{ marginTop: 6, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
+                    of {ksh(fromMinor(g.targetMinor))} · {formatMonthYear(g.targetDate)} · {g.members.length} members
+                  </div>
+                  <div style={{ marginTop: 14, height: 6, background: 'var(--bone-panel)', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ width: Math.min(100, gPace?.pctFunded ?? 0) + '%', height: 6, background: 'var(--ink-green)' }} />
+                  </div>
+                  <div style={{ marginTop: 8, fontWeight: 300, fontSize: 11, color: 'var(--text-muted)' }}>{gPace?.pctFunded ?? 0}% funded</div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       {pledged > 0 && (
         <div style={{ marginTop: 16, background: 'var(--surface-panel)', borderRadius: 8, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 11, height: 11, border: '1.4px solid var(--accent-gold)', borderRadius: 6, flex: 'none' }} />
@@ -81,7 +117,7 @@ export default function SavingsScreen() {
       )}
 
       <div style={{ marginTop: 20 }}>
-        <Button variant="outline" size="md" full>
+        <Button variant="outline" size="md" full onClick={() => navigate('/save/new')}>
           Open a new goal
         </Button>
       </div>

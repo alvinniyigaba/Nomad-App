@@ -67,7 +67,10 @@ export default function HomeScreen() {
         {greeting()}, {capitalize(user?.username)}.
       </div>
 
-      <div style={{ marginTop: 20, position: 'relative', overflow: 'hidden', background: 'var(--surface-panel)', borderRadius: 8, padding: 20 }}>
+      <div
+        onClick={() => navigate('/position')}
+        style={{ marginTop: 20, position: 'relative', overflow: 'hidden', background: 'var(--surface-panel)', borderRadius: 8, padding: 20, cursor: 'pointer' }}
+      >
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           <TerrainPattern theme="light" width={360} height={200} />
         </div>
@@ -80,15 +83,15 @@ export default function HomeScreen() {
           </div>
           <div style={{ marginTop: 6, fontWeight: 400, fontSize: 12, color: 'var(--success)' }}>+{ksh(position.monthChange)} this month</div>
           <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-            <div onClick={() => navigate('/save')} style={{ flex: 1, cursor: 'pointer' }}>
+            <div onClick={(e) => { e.stopPropagation(); navigate('/save'); }} style={{ flex: 1, cursor: 'pointer' }}>
               <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Saved</div>
               <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-heading)' }}>{fmt(saved)}</div>
             </div>
-            <div onClick={() => navigate('/loan')} style={{ flex: 1, cursor: 'pointer' }}>
+            <div onClick={(e) => { e.stopPropagation(); navigate('/loan'); }} style={{ flex: 1, cursor: 'pointer' }}>
               <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Owed</div>
               <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--accent-clay)' }}>{fmt(position.owed)}</div>
             </div>
-            <div onClick={() => navigate('/invest')} style={{ flex: 1, cursor: 'pointer' }}>
+            <div onClick={(e) => { e.stopPropagation(); navigate('/invest'); }} style={{ flex: 1, cursor: 'pointer' }}>
               <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Invested</div>
               <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-heading)' }}>{fmt(position.invested)}</div>
             </div>

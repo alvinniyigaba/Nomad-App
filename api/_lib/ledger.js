@@ -52,3 +52,15 @@ export async function getEntriesForAccount(accountId, limit = 20) {
   );
   return rows;
 }
+
+/** Per-contributor breakdown of a (typically group) account's balance. */
+export async function getContributionsByAccount(accountId) {
+  const { rows } = await query(
+    `SELECT user_id, COALESCE(SUM(amount_minor), 0)::bigint AS total
+     FROM ledger_entries WHERE account_id = $1 GROUP BY user_id`,
+    [accountId],
+  );
+  const map = {};
+  for (const row of rows) map[row.user_id] = BigInt(row.total);
+  return map;
+}

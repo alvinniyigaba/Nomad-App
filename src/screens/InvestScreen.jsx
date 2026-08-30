@@ -1,12 +1,15 @@
 import { useNavigate } from 'react-router-dom';
 import Badge from '../components/ds/Badge';
 import { investments } from '../data/mockData';
-import { fmt, ksh } from '../utils/format';
+import { fmt, ksh, fromMinor, pct } from '../utils/format';
+import { useExternalHoldings } from '../hooks/useExternalHoldings';
 
 const RANGES = ['1M', '6M', 'YTD', 'ALL'];
+const PRODUCT_TYPE_LABEL = { savings: 'Savings account', fixed_deposit: 'Fixed deposit', investment: 'Investment', other: 'Other product' };
 
 export default function InvestScreen() {
   const navigate = useNavigate();
+  const { holdings: externalHoldings } = useExternalHoldings();
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
@@ -129,6 +132,49 @@ export default function InvestScreen() {
           );
         })}
       </div>
+
+      {externalHoldings.length > 0 && (
+        <>
+          <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+            External
+          </div>
+          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {externalHoldings.map((h) => (
+              <div
+                key={h.id}
+                style={{
+                  background: 'var(--surface-card)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 8,
+                  padding: '18px 20px',
+                  boxShadow: 'var(--shadow-sm)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 14,
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>{h.providerName}</div>
+                  <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
+                    {PRODUCT_TYPE_LABEL[h.productType]}
+                    {h.interestRateBps ? ` · ${pct(h.interestRateBps / 100)} p.a.` : ''}
+                    {h.termMonths ? ` · ${h.termMonths}mo term` : ''}
+                  </div>
+                  <div style={{ marginTop: 6, fontWeight: 300, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>
+                    External · not managed by Nomad
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', flex: 'none' }}>
+                  {h.balanceMinor != null && (
+                    <div style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-heading)' }}>{fmt(fromMinor(h.balanceMinor))}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

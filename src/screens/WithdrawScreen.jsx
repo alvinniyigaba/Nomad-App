@@ -26,11 +26,20 @@ function chipStyle(active) {
 export default function WithdrawScreen() {
   const navigate = useNavigate();
   const { wd, setWd, dest, setDest } = useAppState();
-  const { status, goal, liquid, error, refetch } = useAccounts();
+  const { status, goal, liquid, groupGoals, error, refetch } = useAccounts();
+  const [accountId, setAccountId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  const available = liquid ? fromMinor(liquid.balanceMinor) : 0;
+  const adminGroupGoals = groupGoals.filter((g) => g.myRole === 'admin');
+  const sources = [liquid, ...adminGroupGoals].filter(Boolean);
+
+  useEffect(() => {
+    if (status === 'ready' && !accountId && liquid) setAccountId(liquid.id);
+  }, [status, liquid, accountId]);
+
+  const account = sources.find((a) => a.id === accountId) ?? liquid;
+  const available = account ? fromMinor(account.balanceMinor) - fromMinor(account.pledgedMinor) : 0;
   const presets = [10000, 45000].filter((p) => p < available);
 
   useEffect(() => {
@@ -51,7 +60,7 @@ export default function WithdrawScreen() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        accountId: liquid.id,
+        accountId: account.id,
         amountMinor: Math.round(wd * 100),
         rail: destination.label,
         idempotencyKey: crypto.randomUUID(),
@@ -78,24 +87,34 @@ export default function WithdrawScreen() {
       <div style={{ marginTop: 24, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
         From
       </div>
-      <div
-        style={{
-          marginTop: 10,
-          background: 'var(--surface-card)',
-          border: '1px solid var(--border-default)',
-          borderRadius: 8,
-          padding: '17px 20px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          boxShadow: 'var(--shadow-sm)',
-        }}
-      >
-        <div>
-          <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>{liquid.name}</div>
-          <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{ksh(available)} available</div>
-        </div>
-        <div style={{ fontWeight: 300, fontSize: 15, color: 'var(--text-muted)' }}>⌄</div>
+      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {sources.map((a) => (
+          <div
+            key={a.id}
+            onClick={() => setAccountId(a.id)}
+            style={{
+              background: 'var(--surface-card)',
+              border: '1px solid ' + (accountId === a.id ? 'var(--ink-green)' : 'var(--border-default)'),
+              borderRadius: 8,
+              padding: '17px 20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              boxShadow: 'var(--shadow-sm)',
+              cursor: 'pointer',
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>
+                {a.name}
+                {a.isGroup ? ' (group)' : ''}
+              </div>
+              <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
+                {ksh(fromMinor(a.balanceMinor) - fromMinor(a.pledgedMinor))} available
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
       {goal && Number(goal.pledgedMinor) > 0 && (
         <div style={{ marginTop: 10, fontWeight: 300, fontSize: 11, lineHeight: 1.6, color: 'var(--text-faint)' }}>

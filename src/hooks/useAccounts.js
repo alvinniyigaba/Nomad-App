@@ -24,8 +24,9 @@ export function useAccounts() {
     refetch();
   }, [refetch]);
 
-  const goal = state.accounts.find((a) => a.kind === 'goal') ?? null;
-  const liquid = state.accounts.find((a) => a.kind === 'liquid') ?? null;
+  const goal = state.accounts.find((a) => a.kind === 'goal' && !a.isGroup) ?? null;
+  const liquid = state.accounts.find((a) => a.kind === 'liquid' && !a.isGroup) ?? null;
+  const groupGoals = state.accounts.filter((a) => a.isGroup);
 
-  return { ...state, goal, liquid, refetch };
+  return { ...state, goal, liquid, groupGoals, refetch };
 }

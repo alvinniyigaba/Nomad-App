@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../components/ds/Button';
 import Toggle from '../components/ds/Toggle';
+import Badge from '../components/ds/Badge';
 import { Loading, ErrorState } from '../components/ScreenState';
 import { rates } from '../data/mockData';
-import { fmt, ksh, fromMinor, formatMonthYear, formatDayMonth } from '../utils/format';
+import { fmt, ksh, fromMinor, formatMonthYear, formatDayMonth, capitalize } from '../utils/format';
 import { paceStatus } from '../utils/pacing';
 import { useAccounts } from '../hooks/useAccounts';
 
@@ -12,12 +13,17 @@ const KIND_LABEL = { auto_save: 'Auto-save', topup: 'Top-up', interest: 'Interes
 
 export default function GoalDetailScreen() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const savingsRateLabel = rates.savings.toFixed(1) + '% p.a.';
-  const { status, goal, error, refetch } = useAccounts();
+  const { status, goal: individualGoal, accounts, error, refetch } = useAccounts();
   const [savingAutoSave, setSavingAutoSave] = useState(false);
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
+
+  const accountId = searchParams.get('account');
+  const goal = (accountId ? accounts.find((a) => a.id === accountId) : individualGoal) ?? individualGoal;
+  if (!goal) return <ErrorState message="Goal not found" onRetry={refetch} />;
 
   const balance = fromMinor(goal.balanceMinor);
   const target = fromMinor(goal.targetMinor);
@@ -71,27 +77,49 @@ export default function GoalDetailScreen() {
         </div>
       </div>
 
-      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div
-          style={{
-            background: 'var(--surface-card)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 8,
-            padding: '18px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            boxShadow: 'var(--shadow-sm)',
-          }}
-        >
-          <div>
-            <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>Auto-save</div>
-            <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
-              {ksh(fromMinor(goal.autoSaveAmountMinor))} · day {goal.autoSaveDay} of the month · {goal.autoSaveRail}
-            </div>
+      {goal.isGroup && (
+        <div style={{ marginTop: 20, background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '18px 20px', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>Group goal</div>
+            <Badge variant={goal.myRole === 'admin' ? 'solid' : 'outline'}>{goal.myRole === 'admin' ? 'You’re an admin' : 'Member'}</Badge>
           </div>
-          <Toggle on={goal.autoSaveEnabled} onClick={savingAutoSave ? undefined : toggleAutoSave} />
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {goal.members.map((m) => (
+              <div key={m.username} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontWeight: 400, fontSize: 13, color: 'var(--text-heading)', textTransform: 'capitalize' }}>{capitalize(m.username)}</span>
+                  {m.role === 'admin' && <span style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Admin</span>}
+                </div>
+                <span style={{ fontWeight: 500, fontSize: 13, color: 'var(--text-heading)' }}>{ksh(fromMinor(m.contributionMinor))}</span>
+              </div>
+            ))}
+          </div>
         </div>
+      )}
+
+      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {!goal.isGroup && (
+          <div
+            style={{
+              background: 'var(--surface-card)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 8,
+              padding: '18px 20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              boxShadow: 'var(--shadow-sm)',
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>Auto-save</div>
+              <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
+                {ksh(fromMinor(goal.autoSaveAmountMinor))} · day {goal.autoSaveDay} of the month · {goal.autoSaveRail}
+              </div>
+            </div>
+            <Toggle on={goal.autoSaveEnabled} onClick={savingAutoSave ? undefined : toggleAutoSave} />
+          </div>
+        )}
         {pledged > 0 && (
           <div
             onClick={() => navigate('/loan')}
@@ -143,7 +171,7 @@ export default function GoalDetailScreen() {
       })}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 22 }}>
-        <Button variant="primary" size="md" full style={{ flex: 1 }} onClick={() => navigate('/deposit?account=goal')}>
+        <Button variant="primary" size="md" full style={{ flex: 1 }} onClick={() => navigate(`/deposit?account=${goal.id}`)}>
           Top up
         </Button>
         <Button variant="outline" size="md" full style={{ flex: 1 }}>
