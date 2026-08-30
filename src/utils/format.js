@@ -6,6 +6,10 @@ export function ksh(n) {
   return 'UGX ' + fmt(n);
 }
 
+export function capitalize(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
 export function pct(n, digits = 1) {
   return n.toFixed(digits) + '%';
 }

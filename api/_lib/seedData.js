@@ -50,7 +50,8 @@ export const USERS = [
     liquidOpening: 65000,
   },
   {
-    username: 'aotieno', name: 'Achieng', surname: 'Otieno', phoneMasked: '0711 ••• 662', email: 'a.otieno@example.co.ke', memberSince: 2022,
+    username: 'joan', password: 'AppTester5', pin: '6913',
+    name: 'Nanyonga', surname: 'Joan', phoneMasked: '0711 ••• 662', email: 'nanyonga.joan@example.com', memberSince: 2026,
     goal: { name: 'Business capital', target: 1500000, targetDate: '2027-06-01', pledged: 400000, pledgeUnlocks: '2027-01-15', autoSave: { amount: 30000, day: 1, rail: 'Bank transfer' } },
     goalOpening: 860000,
     goalRecent: [
@@ -61,14 +62,16 @@ export const USERS = [
     liquidOpening: 340000,
   },
   {
-    username: 'pnjoroge', name: 'Peter', surname: 'Njoroge', phoneMasked: '0700 ••• 331', email: 'p.njoroge@example.co.ke', memberSince: 2025,
+    username: 'juliet', password: 'AppTester6', pin: '7070',
+    name: 'Nanyonjo', surname: 'Juliet', phoneMasked: '0700 ••• 331', email: 'nanyonjo.juliet@example.com', memberSince: 2026,
     goal: { name: 'Rent deposit', target: 150000, targetDate: '2026-10-01', pledged: 0, pledgeUnlocks: null, autoSave: { amount: 8000, day: 15, rail: 'M-Pesa' } },
     goalOpening: 44000,
     goalRecent: [{ kind: 'auto_save', amount: 8000, rail: 'M-Pesa', memo: 'Auto-save', daysAgo: 15 }],
     liquidOpening: 18000,
   },
   {
-    username: 'gwambui', name: 'Grace', surname: 'Wambui', phoneMasked: '0721 ••• 947', email: 'g.wambui@example.co.ke', memberSince: 2023,
+    username: 'nazziwa', password: 'AppTester7', pin: '2408',
+    name: 'Nazziwa', surname: 'Florence', phoneMasked: '0721 ••• 947', email: 'nazziwa.florence@example.com', memberSince: 2026,
     goal: { name: 'Wedding fund', target: 800000, targetDate: '2026-12-01', pledged: 0, pledgeUnlocks: null, autoSave: { amount: 20000, day: 1, rail: 'M-Pesa' } },
     goalOpening: 610000,
     goalRecent: [
@@ -78,7 +81,8 @@ export const USERS = [
     liquidOpening: 95000,
   },
   {
-    username: 'kkiptoo', name: 'Kevin', surname: 'Kiptoo', phoneMasked: '0745 ••• 128', email: 'k.kiptoo@example.co.ke', memberSince: 2024,
+    username: 'atukunda', password: 'AppTester8', pin: '4250',
+    name: 'Atukunda', surname: 'Praise', phoneMasked: '0745 ••• 128', email: 'atukunda.praise@example.com', memberSince: 2026,
     goal: { name: 'Land purchase', target: 2000000, targetDate: '2028-01-01', pledged: 300000, pledgeUnlocks: '2027-03-01', autoSave: { amount: 25000, day: 1, rail: 'Bank transfer' } },
     goalOpening: 705000,
     goalRecent: [
@@ -88,14 +92,16 @@ export const USERS = [
     liquidOpening: 152000,
   },
   {
-    username: 'matieno', name: 'Mary', surname: 'Atieno', phoneMasked: '0708 ••• 573', email: 'm.atieno@example.co.ke', memberSince: 2025,
+    username: 'luwano', password: 'AppTester9', pin: '6690',
+    name: 'Luwano Ausi', surname: 'Ramah', phoneMasked: '0708 ••• 573', email: 'luwano.ramah@example.com', memberSince: 2026,
     goal: { name: 'Car fund', target: 600000, targetDate: '2027-04-01', pledged: 0, pledgeUnlocks: null, autoSave: { amount: 12000, day: 1, rail: 'M-Pesa' } },
     goalOpening: 96000,
     goalRecent: [{ kind: 'auto_save', amount: 12000, rail: 'M-Pesa', memo: 'Auto-save', daysAgo: 9 }],
     liquidOpening: 31000,
   },
   {
-    username: 'jmwangi', name: 'James', surname: 'Mwangi', phoneMasked: '0790 ••• 264', email: 'j.mwangi@example.co.ke', memberSince: 2022,
+    username: 'muyinza', password: 'AppTester10', pin: '1123',
+    name: 'Muyinza', surname: 'Stephen', phoneMasked: '0790 ••• 264', email: 'muyinza.stephen@example.com', memberSince: 2026,
     goal: { name: 'Home renovation', target: 1200000, targetDate: '2026-09-01', pledged: 150000, pledgeUnlocks: '2026-11-05', autoSave: { amount: 22000, day: 1, rail: 'M-Pesa' } },
     goalOpening: 940000,
     goalRecent: [
@@ -106,7 +112,8 @@ export const USERS = [
     liquidOpening: 210000,
   },
   {
-    username: 'fchebet', name: 'Faith', surname: 'Chebet', phoneMasked: '0757 ••• 819', email: 'f.chebet@example.co.ke', memberSince: 2024,
+    username: 'ingabire', password: 'AppTester11', pin: '3840',
+    name: 'Ingabire', surname: 'Fortunate', phoneMasked: '0757 ••• 819', email: 'ingabire.fortunate@example.com', memberSince: 2026,
     goal: { name: 'Further studies', target: 700000, targetDate: '2027-08-01', pledged: 0, pledgeUnlocks: null, autoSave: { amount: 14000, day: 1, rail: 'M-Pesa' } },
     goalOpening: 265000,
     goalRecent: [
@@ -116,7 +123,8 @@ export const USERS = [
     liquidOpening: 58000,
   },
   {
-    username: 'bomondi', name: 'Brian', surname: 'Omondi', phoneMasked: '0713 ••• 406', email: 'b.omondi@example.co.ke', memberSince: 2023,
+    username: 'sentomero', password: 'AppTester12', pin: '9696',
+    name: 'Sentomero', surname: 'Jason', phoneMasked: '0713 ••• 406', email: 'sentomero.jason@example.com', memberSince: 2026,
     goal: { name: 'Retirement top-up', target: 3000000, targetDate: '2030-01-01', pledged: 0, pledgeUnlocks: null, autoSave: { amount: 35000, day: 1, rail: 'Bank transfer' } },
     goalOpening: 1180000,
     goalRecent: [
@@ -125,7 +133,107 @@ export const USERS = [
     ],
     liquidOpening: 402000,
   },
+  {
+    username: 'munezero', password: 'AppTester3', pin: '1996',
+    name: 'Munezero Mugisha', surname: 'Morris', phoneMasked: '0782 ••• 514', email: 'munezero.morris@example.com', memberSince: 2026,
+    goal: { name: 'Motorbike fund', target: 400000, targetDate: '2027-03-01', pledged: 0, pledgeUnlocks: null, autoSave: { amount: 10000, day: 1, rail: 'M-Pesa' } },
+    goalOpening: 150000,
+    goalRecent: [
+      { kind: 'auto_save', amount: 10000, rail: 'M-Pesa', memo: 'Auto-save', daysAgo: 7 },
+      { kind: 'interest', amount: 1120, memo: 'Interest', daysAgo: 30 },
+    ],
+    liquidOpening: 40000,
+  },
+  {
+    username: 'sage', password: 'AppTester4', pin: '2002',
+    name: 'Sejjoba', surname: 'Timothy', phoneMasked: '0776 ••• 839', email: 'sejjoba.timothy@example.com', memberSince: 2026,
+    goal: { name: 'Startup capital', target: 1000000, targetDate: '2027-09-01', pledged: 200000, pledgeUnlocks: '2027-02-01', autoSave: { amount: 18000, day: 1, rail: 'Bank transfer' } },
+    goalOpening: 430000,
+    goalRecent: [
+      { kind: 'auto_save', amount: 18000, rail: 'Bank transfer', memo: 'Auto-save', daysAgo: 10 },
+      { kind: 'interest', amount: 3240, memo: 'Interest', daysAgo: 30 },
+    ],
+    liquidOpening: 120000,
+  },
+  {
+    username: 'muhawe', password: 'AppTester13', pin: '2026',
+    name: 'Muhawe Newton', surname: 'Burasha', phoneMasked: '0701 ••• 927', email: 'muhawe.burasha@example.com', memberSince: 2026,
+    goal: { name: 'Family land', target: 1800000, targetDate: '2028-06-01', pledged: 0, pledgeUnlocks: null, autoSave: { amount: 28000, day: 1, rail: 'M-Pesa' } },
+    goalOpening: 520000,
+    goalRecent: [
+      { kind: 'auto_save', amount: 28000, rail: 'M-Pesa', memo: 'Auto-save', daysAgo: 6 },
+      { kind: 'interest', amount: 3900, memo: 'Interest', daysAgo: 30 },
+    ],
+    liquidOpening: 175000,
+  },
 ];
+
+/** Inserts one user plus their accounts/ledger seed data. `client` must already be inside a transaction. */
+export async function seedUser(client, u) {
+  const password = u.password ?? randomPassword();
+  const pin = u.pin ?? randomPin();
+  const passwordHash = await bcrypt.hash(password, 10);
+  const pinHash = await bcrypt.hash(pin, 10);
+
+  const { rows: [user] } = await client.query(
+    `INSERT INTO users (username, password_hash, pin_hash, name, surname, phone_masked, email, member_since_year)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+    [u.username, passwordHash, pinHash, u.name, u.surname, u.phoneMasked, u.email, u.memberSince],
+  );
+
+  await client.query(
+    `INSERT INTO kyc_status (user_id, phone_verified, id_matched, selfie_done, source_of_funds_done)
+     VALUES ($1, true, true, false, false)`,
+    [user.id],
+  );
+  await client.query(
+    `INSERT INTO user_settings (user_id, email_statements, face_id, push, language)
+     VALUES ($1, true, true, true, 'en')`,
+    [user.id],
+  );
+
+  // Backdated to match the opening ledger entry below, so pacing math
+  // (elapsed time toward the target) has a real start date to work from.
+  const { rows: [goalAccount] } = await client.query(
+    `INSERT INTO accounts (user_id, kind, name, target_minor, target_date, auto_save_enabled, auto_save_amount_minor, auto_save_day, auto_save_rail, pledged_minor, pledge_unlocks_date, created_at)
+     VALUES ($1,'goal',$2,$3,$4,true,$5,$6,$7,$8,$9, now() - interval '180 days') RETURNING id`,
+    [
+      user.id,
+      u.goal.name,
+      ksh(u.goal.target).toString(),
+      u.goal.targetDate,
+      ksh(u.goal.autoSave.amount).toString(),
+      u.goal.autoSave.day,
+      u.goal.autoSave.rail,
+      ksh(u.goal.pledged).toString(),
+      u.goal.pledgeUnlocks,
+    ],
+  );
+  const { rows: [liquidAccount] } = await client.query(
+    `INSERT INTO accounts (user_id, kind, name) VALUES ($1,'liquid','Emergency') RETURNING id`,
+    [user.id],
+  );
+
+  await client.query(
+    `INSERT INTO ledger_entries (account_id, user_id, amount_minor, kind, memo, created_at)
+     VALUES ($1,$2,$3,'adjustment','Opening balance', now() - interval '180 days')`,
+    [goalAccount.id, user.id, ksh(u.goalOpening).toString()],
+  );
+  for (const entry of u.goalRecent) {
+    await client.query(
+      `INSERT INTO ledger_entries (account_id, user_id, amount_minor, kind, rail, memo, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6, now() - ($7 || ' days')::interval)`,
+      [goalAccount.id, user.id, ksh(entry.amount).toString(), entry.kind, entry.rail ?? null, entry.memo, entry.daysAgo],
+    );
+  }
+  await client.query(
+    `INSERT INTO ledger_entries (account_id, user_id, amount_minor, kind, memo, created_at)
+     VALUES ($1,$2,$3,'adjustment','Opening balance', now() - interval '180 days')`,
+    [liquidAccount.id, user.id, ksh(u.liquidOpening).toString()],
+  );
+
+  return { id: user.id, username: u.username, password, pin };
+}
 
 /** `client` is anything with an async .query(text, params) method (pg.Client or a checked-out pool client). */
 export async function seedDatabase(client) {
@@ -137,69 +245,8 @@ export async function seedDatabase(client) {
     await client.query('TRUNCATE ledger_entries, accounts, kyc_status, user_settings, sessions, users CASCADE');
 
     for (const u of USERS) {
-      const password = u.password ?? randomPassword();
-      const pin = u.pin ?? randomPin();
-      const passwordHash = await bcrypt.hash(password, 10);
-      const pinHash = await bcrypt.hash(pin, 10);
-
-      const { rows: [user] } = await client.query(
-        `INSERT INTO users (username, password_hash, pin_hash, name, surname, phone_masked, email, member_since_year)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-        [u.username, passwordHash, pinHash, u.name, u.surname, u.phoneMasked, u.email, u.memberSince],
-      );
-
-      credentials.push({ username: u.username, password, pin });
-
-      await client.query(
-        `INSERT INTO kyc_status (user_id, phone_verified, id_matched, selfie_done, source_of_funds_done)
-         VALUES ($1, true, true, false, false)`,
-        [user.id],
-      );
-      await client.query(
-        `INSERT INTO user_settings (user_id, email_statements, face_id, push, language)
-         VALUES ($1, true, true, true, 'en')`,
-        [user.id],
-      );
-
-      // Backdated to match the opening ledger entry below, so pacing math
-      // (elapsed time toward the target) has a real start date to work from.
-      const { rows: [goalAccount] } = await client.query(
-        `INSERT INTO accounts (user_id, kind, name, target_minor, target_date, auto_save_enabled, auto_save_amount_minor, auto_save_day, auto_save_rail, pledged_minor, pledge_unlocks_date, created_at)
-         VALUES ($1,'goal',$2,$3,$4,true,$5,$6,$7,$8,$9, now() - interval '180 days') RETURNING id`,
-        [
-          user.id,
-          u.goal.name,
-          ksh(u.goal.target).toString(),
-          u.goal.targetDate,
-          ksh(u.goal.autoSave.amount).toString(),
-          u.goal.autoSave.day,
-          u.goal.autoSave.rail,
-          ksh(u.goal.pledged).toString(),
-          u.goal.pledgeUnlocks,
-        ],
-      );
-      const { rows: [liquidAccount] } = await client.query(
-        `INSERT INTO accounts (user_id, kind, name) VALUES ($1,'liquid','Emergency') RETURNING id`,
-        [user.id],
-      );
-
-      await client.query(
-        `INSERT INTO ledger_entries (account_id, user_id, amount_minor, kind, memo, created_at)
-         VALUES ($1,$2,$3,'adjustment','Opening balance', now() - interval '180 days')`,
-        [goalAccount.id, user.id, ksh(u.goalOpening).toString()],
-      );
-      for (const entry of u.goalRecent) {
-        await client.query(
-          `INSERT INTO ledger_entries (account_id, user_id, amount_minor, kind, rail, memo, created_at)
-           VALUES ($1,$2,$3,$4,$5,$6, now() - ($7 || ' days')::interval)`,
-          [goalAccount.id, user.id, ksh(entry.amount).toString(), entry.kind, entry.rail ?? null, entry.memo, entry.daysAgo],
-        );
-      }
-      await client.query(
-        `INSERT INTO ledger_entries (account_id, user_id, amount_minor, kind, memo, created_at)
-         VALUES ($1,$2,$3,'adjustment','Opening balance', now() - interval '180 days')`,
-        [liquidAccount.id, user.id, ksh(u.liquidOpening).toString()],
-      );
+      const { username, password, pin } = await seedUser(client, u);
+      credentials.push({ username, password, pin });
     }
 
     await client.query('COMMIT');

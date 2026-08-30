@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import NomadLogo from '../components/ds/NomadLogo';
 import TerrainPattern from '../components/ds/TerrainPattern';
 import { useAppState } from '../state/AppStateContext';
+import { capitalize } from '../utils/format';
 
 const DIGIT_STYLE = {
   font: 'var(--font-display)',
@@ -105,7 +106,7 @@ export default function PinScreen() {
           WELCOME BACK
         </div>
         <div style={{ marginTop: 12, fontWeight: 300, fontSize: 13, lineHeight: 1.7, color: 'var(--text-on-ink-body)' }}>
-          Enter your four-digit PIN, {user?.name}. The number on this device is {user?.phoneMasked}.
+          Enter your four-digit PIN, {capitalize(user?.username)}. The number on this device is {user?.phoneMasked}.
         </div>
 
         <div style={{ marginTop: 38 }}>

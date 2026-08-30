@@ -109,7 +109,7 @@ export function publicUser(session) {
     username: session.username,
     name: session.name,
     surname: session.surname,
-    initial: session.name.trim().charAt(0).toUpperCase(),
+    initial: session.username.trim().charAt(0).toUpperCase(),
     phoneMasked: session.phone_masked,
     email: session.email,
     memberSince: session.member_since_year,
