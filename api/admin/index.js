@@ -16,7 +16,14 @@
 // entries. Runs daily via Vercel Cron (see vercel.json, authenticated with
 // CRON_SECRET) and can also be triggered on demand with the usual
 // ?token=ADMIN_TOKEN. Idempotent per row (sheet-row-<n> as the ledger's
-// idempotency key), so re-running it never double-posts.
+// idempotency key), so re-running it never double-posts. Left in place as
+// a fallback, but the primary path is now resource=post-entries below.
+//
+// resource=post-entries (POST): same row validation/posting as sync-sheet,
+// but takes pre-parsed rows directly in the request body instead of
+// fetching a URL — used when Claude reads a private Google Sheet (via the
+// Drive connection, no "publish to web" needed) and submits what it finds.
+// Caller supplies its own idempotencyKey per row.
 import { readFileSync } from 'fs';
 import { db, query } from '../_lib/db.js';
 import { postEntry } from '../_lib/ledger.js';
@@ -142,6 +149,47 @@ async function handleExternalHoldings(req, res) {
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
+/**
+ * Validates and posts one transaction-log row. Returns { posted: true },
+ * { skipped: true } (already synced under this idempotencyKey), or
+ * { error }. Shared by the CSV-fetch path (sync-sheet) and the
+ * direct-submission path (post-entries).
+ */
+async function processRow({ idempotencyKey, date, owner, accountName, contributor, type, amountStr, memo }) {
+  const kind = (type || '').trim().toLowerCase();
+  if (!['deposit', 'withdrawal'].includes(kind)) {
+    return { error: `Type must be "deposit" or "withdrawal", got "${type}"` };
+  }
+  const amount = Number((amountStr ?? '').toString().replace(/,/g, ''));
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { error: `Invalid amount "${amountStr}"` };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test((date || '').trim())) {
+    return { error: `Date must be YYYY-MM-DD, got "${date}"` };
+  }
+
+  const { rows: existing } = await query('SELECT id FROM ledger_entries WHERE idempotency_key = $1', [idempotencyKey]);
+  if (existing[0]) return { skipped: true };
+
+  const accountId = await resolveAccountId(owner?.trim(), accountName?.trim());
+  if (!accountId) return { error: `Could not resolve account "${accountName}" (owner "${owner || '(group)'}")` };
+
+  const userId = await resolveUserId(contributor?.trim());
+  if (!userId) return { error: `Unknown contributor username "${contributor}"` };
+
+  const amountMinor = BigInt(Math.round(amount * 100)) * (kind === 'withdrawal' ? -1n : 1n);
+  await postEntry({
+    accountId,
+    userId,
+    amountMinor,
+    kind: kind === 'withdrawal' ? 'withdrawal' : 'topup',
+    memo: memo?.trim() || (kind === 'withdrawal' ? 'Withdrawal' : 'Deposit'),
+    idempotencyKey,
+    createdAt: date.trim(),
+  });
+  return { posted: true };
+}
+
 async function handleSyncSheet(req, res) {
   const csvUrl = process.env.SHEET_CSV_URL;
   if (!csvUrl) return res.status(500).json({ error: 'SHEET_CSV_URL is not set' });
@@ -158,50 +206,34 @@ async function handleSyncSheet(req, res) {
     const [date, owner, accountName, contributor, type, amountStr, memo] = dataRows[i];
     if (!date?.trim() && !accountName?.trim()) continue; // blank trailing row
 
-    const kind = (type || '').trim().toLowerCase();
-    if (!['deposit', 'withdrawal'].includes(kind)) {
-      results.errors.push({ row: rowNum, error: `Type must be "deposit" or "withdrawal", got "${type}"` });
-      continue;
-    }
-    const amount = Number((amountStr || '').replace(/,/g, ''));
-    if (!Number.isFinite(amount) || amount <= 0) {
-      results.errors.push({ row: rowNum, error: `Invalid amount "${amountStr}"` });
-      continue;
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test((date || '').trim())) {
-      results.errors.push({ row: rowNum, error: `Date must be YYYY-MM-DD, got "${date}"` });
-      continue;
-    }
+    const result = await processRow({ idempotencyKey: `sheet-row-${rowNum}`, date, owner, accountName, contributor, type, amountStr, memo });
+    if (result.error) results.errors.push({ row: rowNum, error: result.error });
+    else if (result.skipped) results.skipped++;
+    else results.posted++;
+  }
 
-    const idempotencyKey = `sheet-row-${rowNum}`;
-    const { rows: existing } = await query('SELECT id FROM ledger_entries WHERE idempotency_key = $1', [idempotencyKey]);
-    if (existing[0]) {
-      results.skipped++;
-      continue;
-    }
+  return res.status(200).json({ ok: true, ...results });
+}
 
-    const accountId = await resolveAccountId(owner?.trim(), accountName?.trim());
-    if (!accountId) {
-      results.errors.push({ row: rowNum, error: `Could not resolve account "${accountName}" (owner "${owner || '(group)'}")` });
-      continue;
-    }
-    const userId = await resolveUserId(contributor?.trim());
-    if (!userId) {
-      results.errors.push({ row: rowNum, error: `Unknown contributor username "${contributor}"` });
-      continue;
-    }
-
-    const amountMinor = BigInt(Math.round(amount * 100)) * (kind === 'withdrawal' ? -1n : 1n);
-    await postEntry({
-      accountId,
-      userId,
-      amountMinor,
-      kind: kind === 'withdrawal' ? 'withdrawal' : 'topup',
-      memo: memo?.trim() || (kind === 'withdrawal' ? 'Withdrawal' : 'Deposit'),
-      idempotencyKey,
-      createdAt: date.trim(),
+async function handlePostEntries(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const { entries } = req.body ?? {};
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return res.status(400).json({
+      error: 'entries must be a non-empty array of { idempotencyKey, date, owner, accountName, contributor, type, amountStr, memo }',
     });
-    results.posted++;
+  }
+
+  const results = { posted: 0, skipped: 0, errors: [] };
+  for (const e of entries) {
+    if (typeof e?.idempotencyKey !== 'string' || !e.idempotencyKey) {
+      results.errors.push({ idempotencyKey: e?.idempotencyKey ?? null, error: 'idempotencyKey is required for each entry' });
+      continue;
+    }
+    const result = await processRow(e);
+    if (result.error) results.errors.push({ idempotencyKey: e.idempotencyKey, error: result.error });
+    else if (result.skipped) results.skipped++;
+    else results.posted++;
   }
 
   return res.status(200).json({ ok: true, ...results });
@@ -220,5 +252,6 @@ export default async function handler(req, res) {
   if (req.query.resource === 'migrate') return handleMigrate(req, res);
   if (req.query.resource === 'external-holdings') return handleExternalHoldings(req, res);
   if (req.query.resource === 'sync-sheet') return handleSyncSheet(req, res);
-  return res.status(400).json({ error: 'Unknown resource. Use ?resource=migrate, external-holdings, or sync-sheet' });
+  if (req.query.resource === 'post-entries') return handlePostEntries(req, res);
+  return res.status(400).json({ error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, or post-entries' });
 }
