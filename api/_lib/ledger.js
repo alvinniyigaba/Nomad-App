@@ -23,16 +23,19 @@ export async function getBalancesForUser(userId) {
 /**
  * Posts a ledger entry. idempotencyKey (if given) makes retried requests
  * safe — a duplicate key returns the original entry instead of posting twice.
+ * createdAt lets a caller backdate an entry to when the money actually moved
+ * (e.g. syncing a historical transaction log) — omit it for live actions,
+ * which should just use the DB's now() default.
  */
-export async function postEntry({ accountId, userId, amountMinor, kind, rail = null, memo = null, idempotencyKey = null }) {
+export async function postEntry({ accountId, userId, amountMinor, kind, rail = null, memo = null, idempotencyKey = null, createdAt = null }) {
   if (idempotencyKey) {
     const existing = await query('SELECT * FROM ledger_entries WHERE idempotency_key = $1', [idempotencyKey]);
     if (existing.rows[0]) return existing.rows[0];
   }
   const { rows } = await query(
-    `INSERT INTO ledger_entries (account_id, user_id, amount_minor, kind, rail, memo, idempotency_key)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [accountId, userId, amountMinor.toString(), kind, rail, memo, idempotencyKey],
+    `INSERT INTO ledger_entries (account_id, user_id, amount_minor, kind, rail, memo, idempotency_key, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, now())) RETURNING *`,
+    [accountId, userId, amountMinor.toString(), kind, rail, memo, idempotencyKey, createdAt],
   );
   return rows[0];
 }

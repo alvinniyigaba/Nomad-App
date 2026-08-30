@@ -10,12 +10,69 @@
 // savings/investment products Nomad doesn't manage. Entered here rather
 // than self-serve, after the user discloses them to Nomad, to keep the
 // data clean.
+//
+// resource=sync-sheet (GET): reads a published-to-web Google Sheet (CSV) —
+// an append-only transaction log — and posts any new rows as real ledger
+// entries. Runs daily via Vercel Cron (see vercel.json, authenticated with
+// CRON_SECRET) and can also be triggered on demand with the usual
+// ?token=ADMIN_TOKEN. Idempotent per row (sheet-row-<n> as the ledger's
+// idempotency key), so re-running it never double-posts.
 import { readFileSync } from 'fs';
 import { db, query } from '../_lib/db.js';
+import { postEntry } from '../_lib/ledger.js';
 
 async function resolveUserId(username) {
+  if (!username) return null;
   const { rows } = await query('SELECT id FROM users WHERE username = $1', [username.trim().toLowerCase()]);
   return rows[0]?.id ?? null;
+}
+
+async function resolveAccountId(ownerUsername, accountName) {
+  if (ownerUsername) {
+    const { rows } = await query(
+      `SELECT a.id FROM accounts a JOIN users u ON u.id = a.user_id
+       WHERE a.name = $1 AND a.is_group = false AND u.username = $2`,
+      [accountName, ownerUsername.trim().toLowerCase()],
+    );
+    return rows[0]?.id ?? null;
+  }
+  // No owner given -> must be a group goal, and the name must be unambiguous.
+  const { rows } = await query('SELECT id FROM accounts WHERE name = $1 AND is_group = true', [accountName]);
+  return rows.length === 1 ? rows[0].id : null;
+}
+
+/** Minimal RFC4180 CSV parser — handles quoted fields with embedded commas/quotes. */
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ',') {
+      row.push(field);
+      field = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field);
+      field = '';
+      if (row.length > 1 || row[0] !== '') rows.push(row);
+      row = [];
+    } else field += c;
+  }
+  if (field !== '' || row.length) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows;
 }
 
 async function handleMigrate(req, res) {
@@ -85,12 +142,83 @@ async function handleExternalHoldings(req, res) {
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
-export default async function handler(req, res) {
-  if (req.query.token !== process.env.ADMIN_TOKEN || !process.env.ADMIN_TOKEN) {
-    return res.status(403).json({ error: 'Forbidden' });
+async function handleSyncSheet(req, res) {
+  const csvUrl = process.env.SHEET_CSV_URL;
+  if (!csvUrl) return res.status(500).json({ error: 'SHEET_CSV_URL is not set' });
+
+  const csvRes = await fetch(csvUrl);
+  if (!csvRes.ok) return res.status(502).json({ error: `Could not fetch sheet (HTTP ${csvRes.status})` });
+  const text = await csvRes.text();
+
+  const [, ...dataRows] = parseCsv(text); // first row is the header
+  const results = { posted: 0, skipped: 0, errors: [] };
+
+  for (let i = 0; i < dataRows.length; i++) {
+    const rowNum = i + 1; // stable as long as rows are only ever appended, never inserted/reordered
+    const [date, owner, accountName, contributor, type, amountStr, memo] = dataRows[i];
+    if (!date?.trim() && !accountName?.trim()) continue; // blank trailing row
+
+    const kind = (type || '').trim().toLowerCase();
+    if (!['deposit', 'withdrawal'].includes(kind)) {
+      results.errors.push({ row: rowNum, error: `Type must be "deposit" or "withdrawal", got "${type}"` });
+      continue;
+    }
+    const amount = Number((amountStr || '').replace(/,/g, ''));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      results.errors.push({ row: rowNum, error: `Invalid amount "${amountStr}"` });
+      continue;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test((date || '').trim())) {
+      results.errors.push({ row: rowNum, error: `Date must be YYYY-MM-DD, got "${date}"` });
+      continue;
+    }
+
+    const idempotencyKey = `sheet-row-${rowNum}`;
+    const { rows: existing } = await query('SELECT id FROM ledger_entries WHERE idempotency_key = $1', [idempotencyKey]);
+    if (existing[0]) {
+      results.skipped++;
+      continue;
+    }
+
+    const accountId = await resolveAccountId(owner?.trim(), accountName?.trim());
+    if (!accountId) {
+      results.errors.push({ row: rowNum, error: `Could not resolve account "${accountName}" (owner "${owner || '(group)'}")` });
+      continue;
+    }
+    const userId = await resolveUserId(contributor?.trim());
+    if (!userId) {
+      results.errors.push({ row: rowNum, error: `Unknown contributor username "${contributor}"` });
+      continue;
+    }
+
+    const amountMinor = BigInt(Math.round(amount * 100)) * (kind === 'withdrawal' ? -1n : 1n);
+    await postEntry({
+      accountId,
+      userId,
+      amountMinor,
+      kind: kind === 'withdrawal' ? 'withdrawal' : 'topup',
+      memo: memo?.trim() || (kind === 'withdrawal' ? 'Withdrawal' : 'Deposit'),
+      idempotencyKey,
+      createdAt: date.trim(),
+    });
+    results.posted++;
   }
+
+  return res.status(200).json({ ok: true, ...results });
+}
+
+function isAuthorized(req) {
+  if (process.env.ADMIN_TOKEN && req.query.token === process.env.ADMIN_TOKEN) return true;
+  const authHeader = req.headers.authorization || '';
+  if (process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`) return true;
+  return false;
+}
+
+export default async function handler(req, res) {
+  if (!isAuthorized(req)) return res.status(403).json({ error: 'Forbidden' });
 
   if (req.query.resource === 'migrate') return handleMigrate(req, res);
   if (req.query.resource === 'external-holdings') return handleExternalHoldings(req, res);
-  return res.status(400).json({ error: 'Unknown resource. Use ?resource=migrate or ?resource=external-holdings' });
+  if (req.query.resource === 'sync-sheet') return handleSyncSheet(req, res);
+  return res.status(400).json({ error: 'Unknown resource. Use ?resource=migrate, external-holdings, or sync-sheet' });
 }
