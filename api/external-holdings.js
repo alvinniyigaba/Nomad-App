@@ -1,7 +1,7 @@
 import { requireFullSession } from './_lib/auth.js';
 import { query } from './_lib/db.js';
 
-function serialize(row) {
+function serialize(row, history) {
   return {
     id: row.id,
     providerName: row.provider_name,
@@ -11,11 +11,16 @@ function serialize(row) {
     termMonths: row.term_months,
     maturityDate: row.maturity_date,
     notes: row.notes,
+    managedBy: row.managed_by,
+    status: row.status,
     updatedAt: row.updated_at,
+    // Only populated for managedBy: 'nomad' holdings — current value and
+    // YTD change are derived from this, not stored, same as the ledger.
+    history: history?.map((h) => ({ date: h.snapshot_date, valueMinor: h.value_minor.toString() })) ?? null,
   };
 }
 
-/** Read-only for the signed-in user's own rows. Entries are written by an admin — see api/admin/external-holdings.js. */
+/** Read-only for the signed-in user's own rows. Entries are written by an admin — see api/admin/index.js (resource=external-holdings). */
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -26,5 +31,15 @@ export default async function handler(req, res) {
     'SELECT * FROM external_holdings WHERE user_id = $1 ORDER BY created_at DESC',
     [session.user_id],
   );
-  return res.status(200).json({ holdings: rows.map(serialize) });
+  const holdings = await Promise.all(
+    rows.map(async (row) => {
+      if (row.managed_by !== 'nomad') return serialize(row, null);
+      const { rows: history } = await query(
+        'SELECT value_minor, snapshot_date FROM investment_snapshots WHERE holding_id = $1 ORDER BY snapshot_date ASC',
+        [row.id],
+      );
+      return serialize(row, history);
+    }),
+  );
+  return res.status(200).json({ holdings });
 }

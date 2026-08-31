@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-/** Savings/investment products Nomad doesn't manage — self-reported, admin-entered. */
+/** All of the user's savings/investment holdings — both Nomad-managed and external (self-reported), admin-entered. Filter by managedBy. */
 export function useExternalHoldings() {
   const [state, setState] = useState({ status: 'loading', holdings: [], error: null });
 

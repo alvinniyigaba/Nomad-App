@@ -1,15 +1,68 @@
 import { useNavigate } from 'react-router-dom';
 import Badge from '../components/ds/Badge';
-import { investments } from '../data/mockData';
+import YieldCalculator from '../components/YieldCalculator';
 import { fmt, ksh, fromMinor, pct } from '../utils/format';
 import { useExternalHoldings } from '../hooks/useExternalHoldings';
+import { buildPortfolioSeries, ytdChangeMinor, chartPolylinePoints } from '../utils/investmentSeries';
 
 const RANGES = ['1M', '6M', 'YTD', 'ALL'];
 const PRODUCT_TYPE_LABEL = { savings: 'Savings account', fixed_deposit: 'Fixed deposit', investment: 'Investment', other: 'Other product' };
 
+function HoldingCard({ title, meta, value, footer, dashed, ink, badge }) {
+  return (
+    <div
+      style={{
+        background: ink ? 'var(--surface-ink)' : 'var(--surface-card)',
+        border: dashed ? '1px dashed var(--sand-line)' : ink ? '1px solid rgba(201,138,43,0.28)' : '1px solid var(--border-default)',
+        borderRadius: 8,
+        padding: '18px 20px',
+        boxShadow: dashed ? 'none' : ink ? 'var(--shadow-md)' : 'var(--shadow-sm)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 14,
+      }}
+    >
+      <div>
+        <div style={{ fontWeight: 400, fontSize: 14, color: dashed ? 'var(--text-muted)' : ink ? 'var(--text-on-ink)' : 'var(--text-heading)' }}>{title}</div>
+        <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: dashed ? 'var(--text-faint)' : ink ? 'var(--text-on-ink-body)' : 'var(--text-muted)' }}>{meta}</div>
+        {footer && (
+          <div style={{ marginTop: 6, fontWeight: 300, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: ink ? 'var(--taupe-on-ink)' : 'var(--text-faint)' }}>
+            {footer}
+          </div>
+        )}
+      </div>
+      {badge ? (
+        <Badge variant="gold">{badge}</Badge>
+      ) : (
+        value != null && (
+          <div style={{ textAlign: 'right', flex: 'none' }}>
+            <div style={{ fontWeight: 500, fontSize: 14, color: ink ? 'var(--accent-gold)' : 'var(--text-heading)' }}>{fmt(value)}</div>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 export default function InvestScreen() {
   const navigate = useNavigate();
-  const { holdings: externalHoldings } = useExternalHoldings();
+  const { holdings } = useExternalHoldings();
+
+  const nomadActive = holdings.filter((h) => h.managedBy === 'nomad' && h.status === 'active');
+  const nomadInvited = holdings.filter((h) => h.managedBy === 'nomad' && h.status === 'invited');
+  const external = holdings.filter((h) => h.managedBy === 'external');
+
+  const series = buildPortfolioSeries(holdings);
+  const totalMinor = series.length ? series[series.length - 1].totalMinor : 0;
+  const ytdChange = ytdChangeMinor(series);
+  const ytdPct = totalMinor - ytdChange !== 0 ? (ytdChange / (totalMinor - ytdChange)) * 100 : 0;
+  const points = chartPolylinePoints(series);
+
+  function latestValue(h) {
+    if (!h.history?.length) return null;
+    return Number(h.history[h.history.length - 1].valueMinor);
+  }
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
@@ -23,20 +76,27 @@ export default function InvestScreen() {
       </div>
 
       <div style={{ marginTop: 22, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>
-        {ksh(investments.total)}
+        {ksh(fromMinor(totalMinor))}
       </div>
       <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'baseline' }}>
-        <span style={{ fontWeight: 500, fontSize: 13, color: 'var(--success)' }}>+{ksh(investments.ytdChange)}</span>
-        <span style={{ fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>+{investments.ytdPct}% year to date</span>
+        <span style={{ fontWeight: 500, fontSize: 13, color: ytdChange >= 0 ? 'var(--success)' : 'var(--accent-clay)' }}>
+          {ytdChange >= 0 ? '+' : ''}
+          {ksh(fromMinor(ytdChange))}
+        </span>
+        <span style={{ fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{ytdPct >= 0 ? '+' : ''}{ytdPct.toFixed(1)}% year to date</span>
       </div>
 
       <div style={{ marginTop: 20, height: 132, background: 'var(--surface-panel)', borderRadius: 8, padding: 14, position: 'relative' }}>
-        <svg viewBox="0 0 330 104" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
-          <polyline points={investments.chartPoints} fill="none" stroke="#1F4A47" strokeWidth="1.6" />
-          <line x1="0" y1="52" x2="330" y2="52" stroke="#C0A882" strokeWidth="1" strokeDasharray="2 7" />
-          <circle cx="330" cy="14" r="4.5" fill="none" stroke="#C98A2B" strokeWidth="1.6" />
-          <circle cx="330" cy="14" r="1.6" fill="#C98A2B" />
-        </svg>
+        {points ? (
+          <svg viewBox="0 0 330 104" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
+            <polyline points={points} fill="none" stroke="#1F4A47" strokeWidth="1.6" />
+            <line x1="0" y1="52" x2="330" y2="52" stroke="#C0A882" strokeWidth="1" strokeDasharray="2 7" />
+          </svg>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontWeight: 300, fontSize: 12, color: 'var(--text-faint)' }}>
+            No performance history yet
+          </div>
+        )}
       </div>
       <div style={{ display: 'flex', gap: 7, marginTop: 14 }}>
         {RANGES.map((r, i) => (
@@ -59,122 +119,52 @@ export default function InvestScreen() {
         ))}
       </div>
 
-      <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        Holdings
-      </div>
-      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {investments.holdings.map((h) => {
-          if (h.kind === 'invite') {
-            return (
-              <div
-                key={h.id}
-                style={{
-                  border: '1px dashed var(--sand-line)',
-                  borderRadius: 8,
-                  padding: '18px 20px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: 14,
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-muted)' }}>{h.name}</div>
-                  <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-faint)' }}>{h.meta}</div>
-                </div>
-                <Badge variant="gold">Invited</Badge>
-              </div>
-            );
-          }
-          if (h.kind === 'lp') {
-            return (
-              <div
-                key={h.id}
-                style={{ background: 'var(--surface-ink)', border: '1px solid rgba(201,138,43,0.28)', borderRadius: 8, padding: '18px 20px', boxShadow: 'var(--shadow-md)' }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
-                  <div>
-                    <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-on-ink)' }}>{h.name}</div>
-                    <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-on-ink-body)' }}>{h.meta}</div>
-                  </div>
-                  <div style={{ textAlign: 'right', flex: 'none' }}>
-                    <div style={{ fontWeight: 500, fontSize: 14, color: 'var(--accent-gold)' }}>{fmt(h.value)}</div>
-                    <div style={{ marginTop: 5, fontWeight: 300, fontSize: 11, color: 'var(--taupe-on-ink)' }}>{h.note}</div>
-                  </div>
-                </div>
-              </div>
-            );
-          }
-          return (
-            <div
-              key={h.id}
-              style={{
-                background: 'var(--surface-card)',
-                border: '1px solid var(--border-default)',
-                borderRadius: 8,
-                padding: '18px 20px',
-                boxShadow: 'var(--shadow-sm)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 14,
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>{h.name}</div>
-                <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{h.meta}</div>
-              </div>
-              <div style={{ textAlign: 'right', flex: 'none' }}>
-                <div style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-heading)' }}>{fmt(h.value)}</div>
-                <div style={{ marginTop: 5, fontWeight: 400, fontSize: 11, color: 'var(--success)' }}>+{h.changePct}%</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {(nomadActive.length > 0 || nomadInvited.length > 0) && (
+        <>
+          <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+            Holdings
+          </div>
+          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {nomadInvited.map((h) => (
+              <HoldingCard key={h.id} title={h.providerName} meta={h.notes || 'Invitation open'} dashed badge="Invited" />
+            ))}
+            {nomadActive.map((h) => {
+              const value = latestValue(h);
+              return (
+                <HoldingCard
+                  key={h.id}
+                  title={h.providerName}
+                  meta={`${PRODUCT_TYPE_LABEL[h.productType]}${h.interestRateBps ? ` · ${pct(h.interestRateBps / 100)} p.a.` : ''}`}
+                  value={value != null ? fromMinor(value) : null}
+                  footer={value == null ? 'No value entered yet' : null}
+                  ink
+                />
+              );
+            })}
+          </div>
+        </>
+      )}
 
-      {externalHoldings.length > 0 && (
+      {external.length > 0 && (
         <>
           <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
             External
           </div>
           <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {externalHoldings.map((h) => (
-              <div
+            {external.map((h) => (
+              <HoldingCard
                 key={h.id}
-                style={{
-                  background: 'var(--surface-card)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: 8,
-                  padding: '18px 20px',
-                  boxShadow: 'var(--shadow-sm)',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: 14,
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>{h.providerName}</div>
-                  <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
-                    {PRODUCT_TYPE_LABEL[h.productType]}
-                    {h.interestRateBps ? ` · ${pct(h.interestRateBps / 100)} p.a.` : ''}
-                    {h.termMonths ? ` · ${h.termMonths}mo term` : ''}
-                  </div>
-                  <div style={{ marginTop: 6, fontWeight: 300, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>
-                    External · not managed by Nomad
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right', flex: 'none' }}>
-                  {h.balanceMinor != null && (
-                    <div style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-heading)' }}>{fmt(fromMinor(h.balanceMinor))}</div>
-                  )}
-                </div>
-              </div>
+                title={h.providerName}
+                meta={`${PRODUCT_TYPE_LABEL[h.productType]}${h.interestRateBps ? ` · ${pct(h.interestRateBps / 100)} p.a.` : ''}${h.termMonths ? ` · ${h.termMonths}mo term` : ''}`}
+                footer="External · not managed by Nomad"
+                value={h.balanceMinor != null ? fromMinor(h.balanceMinor) : null}
+              />
             ))}
           </div>
         </>
       )}
+
+      <YieldCalculator holdings={nomadActive} />
     </div>
   );
 }

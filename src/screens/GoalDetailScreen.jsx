@@ -17,6 +17,8 @@ export default function GoalDetailScreen() {
   const savingsRateLabel = rates.savings.toFixed(1) + '% p.a.';
   const { status, goal: individualGoal, accounts, error, refetch } = useAccounts();
   const [savingAutoSave, setSavingAutoSave] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState('');
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
@@ -40,6 +42,27 @@ export default function GoalDetailScreen() {
     });
     await refetch();
     setSavingAutoSave(false);
+  }
+
+  const canClose = BigInt(goal.balanceMinor) === 0n && (!goal.isGroup || goal.myRole === 'admin');
+  const canSeeClose = !goal.isGroup || goal.myRole === 'admin';
+
+  async function closeGoal() {
+    if (!window.confirm(`Close "${goal.name}"? It'll drop off your Home and Savings screens — its history stays on record.`)) return;
+    setClosing(true);
+    setCloseError('');
+    const res = await fetch('/api/accounts', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId: goal.id, closeGoal: true }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setCloseError(data.error ?? 'Could not close this goal');
+      setClosing(false);
+      return;
+    }
+    navigate('/save');
   }
 
   return (
@@ -178,6 +201,19 @@ export default function GoalDetailScreen() {
           Edit goal
         </Button>
       </div>
+      {canSeeClose && (
+        <div style={{ marginTop: 10 }}>
+          <Button variant="outline" size="md" full onClick={closeGoal} disabled={!canClose || closing}>
+            {closing ? 'Closing…' : 'Close goal'}
+          </Button>
+          {!canClose && (
+            <div style={{ marginTop: 8, fontWeight: 300, fontSize: 11, color: 'var(--text-faint)' }}>
+              Withdraw the remaining balance to close this goal.
+            </div>
+          )}
+          {closeError && <div style={{ marginTop: 8, fontWeight: 400, fontSize: 12, color: 'var(--accent-clay)' }}>{closeError}</div>}
+        </div>
+      )}
     </div>
   );
 }

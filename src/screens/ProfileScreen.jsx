@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/ds/Button';
 import Toggle from '../components/ds/Toggle';
 import { customer, appVersion } from '../data/mockData';
+import { formatFullDate } from '../utils/format';
 // customer.payoutAccounts stays mock (payments aren't wired up yet); everything
 // else here comes from the authenticated user.
 import { useAppState } from '../state/AppStateContext';
@@ -61,6 +63,16 @@ export default function ProfileScreen() {
   const navigate = useNavigate();
   const { user, emailStatements, toggleEmailStatements, faceId, toggleFaceId, push, togglePush, lockApp } = useAppState();
   const { kyc } = useKyc();
+  const [showDetails, setShowDetails] = useState(false);
+
+  const bioFields = [
+    ['Date of birth', user?.dateOfBirth ? formatFullDate(user.dateOfBirth) : null],
+    ['Gender', user?.gender],
+    ['Occupation', user?.occupation],
+    ['National ID', user?.nationalId],
+    ['Address', user?.address],
+    ['Next of kin', user?.nextOfKinName && user?.nextOfKinPhone ? `${user.nextOfKinName} · ${user.nextOfKinPhone}` : user?.nextOfKinName],
+  ].filter(([, value]) => value);
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
@@ -122,10 +134,28 @@ export default function ProfileScreen() {
 
       <SectionLabel style={{ marginTop: 26 }}>Your profile</SectionLabel>
       <SettingsCard>
-        <SettingsRow title="Personal details" meta="Name, date of birth, address" right={Arrow} onClick={() => {}} />
+        <SettingsRow
+          title="Personal details"
+          meta={bioFields.length ? `${bioFields.length} on file` : 'Not yet on file'}
+          right={Arrow}
+          onClick={() => setShowDetails((v) => !v)}
+        />
         <SettingsRow title="Phone and email" meta={user?.email} right={Arrow} onClick={() => {}} />
         <SettingsRow title="Payout accounts" meta={customer.payoutAccounts} right={Arrow} onClick={() => {}} last />
       </SettingsCard>
+
+      {showDetails && (
+        <SettingsCard>
+          {bioFields.length === 0 && (
+            <div style={{ padding: '17px 20px', fontWeight: 300, fontSize: 12, color: 'var(--text-faint)' }}>
+              Nothing on file yet.
+            </div>
+          )}
+          {bioFields.map(([label, value], i) => (
+            <SettingsRow key={label} title={label} meta={value} last={i === bioFields.length - 1} />
+          ))}
+        </SettingsCard>
+      )}
 
       <SectionLabel style={{ marginTop: 24 }}>Documents</SectionLabel>
       <div

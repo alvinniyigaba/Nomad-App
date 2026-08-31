@@ -50,8 +50,9 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const { rows: accounts } = await query(
       `SELECT a.* FROM accounts a
-       WHERE (a.is_group = false AND a.user_id = $1)
-          OR (a.is_group = true AND EXISTS (SELECT 1 FROM account_members m WHERE m.account_id = a.id AND m.user_id = $1))
+       WHERE a.closed_at IS NULL
+         AND ((a.is_group = false AND a.user_id = $1)
+          OR (a.is_group = true AND EXISTS (SELECT 1 FROM account_members m WHERE m.account_id = a.id AND m.user_id = $1)))
        ORDER BY a.is_group ASC, a.kind DESC`,
       [session.user_id],
     );
@@ -70,16 +71,28 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
-    const { accountId, autoSaveEnabled } = req.body ?? {};
-    if (typeof accountId !== 'string' || typeof autoSaveEnabled !== 'boolean') {
-      return res.status(400).json({ error: 'accountId and autoSaveEnabled are required' });
+    const { accountId, autoSaveEnabled, closeGoal } = req.body ?? {};
+    if (typeof accountId !== 'string') {
+      return res.status(400).json({ error: 'accountId is required' });
     }
     const { account, forbidden } = await getAccessibleAccount(accountId, session.user_id, { requireAdmin: true });
     if (!account) return res.status(404).json({ error: 'Account not found' });
     if (forbidden) return res.status(403).json({ error: 'Only a group admin can change this' });
 
-    await query('UPDATE accounts SET auto_save_enabled = $1 WHERE id = $2', [autoSaveEnabled, accountId]);
-    return res.status(200).json({ ok: true });
+    if (closeGoal === true) {
+      if (account.kind !== 'goal') return res.status(400).json({ error: 'Only a goal can be closed' });
+      const balance = await getBalanceMinor(accountId);
+      if (balance !== 0n) return res.status(400).json({ error: 'Withdraw the remaining balance before closing this goal' });
+      await query('UPDATE accounts SET closed_at = now() WHERE id = $1', [accountId]);
+      return res.status(200).json({ ok: true });
+    }
+
+    if (typeof autoSaveEnabled === 'boolean') {
+      await query('UPDATE accounts SET auto_save_enabled = $1 WHERE id = $2', [autoSaveEnabled, accountId]);
+      return res.status(200).json({ ok: true });
+    }
+
+    return res.status(400).json({ error: 'Nothing to update — pass autoSaveEnabled or closeGoal' });
   }
 
   return res.status(405).json({ error: 'Method not allowed' });

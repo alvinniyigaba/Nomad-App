@@ -49,7 +49,8 @@ export async function getSession(req) {
   const { [COOKIE_NAME]: token } = parseCookies(req);
   if (!token) return null;
   const { rows } = await query(
-    `SELECT s.*, u.id AS user_id, u.username, u.name, u.surname, u.phone_masked, u.email, u.member_since_year
+    `SELECT s.*, u.id AS user_id, u.username, u.name, u.surname, u.phone_masked, u.email, u.member_since_year,
+            u.date_of_birth, u.gender, u.occupation, u.national_id, u.address, u.next_of_kin_name, u.next_of_kin_phone
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > now()`,
     [hashToken(token)],
@@ -113,5 +114,12 @@ export function publicUser(session) {
     phoneMasked: session.phone_masked,
     email: session.email,
     memberSince: session.member_since_year,
+    dateOfBirth: session.date_of_birth,
+    gender: session.gender,
+    occupation: session.occupation,
+    nationalId: session.national_id,
+    address: session.address,
+    nextOfKinName: session.next_of_kin_name,
+    nextOfKinPhone: session.next_of_kin_phone,
   };
 }

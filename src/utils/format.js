@@ -42,3 +42,10 @@ export function formatDayMonth(dateStr) {
   const d = new Date(dateStr);
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
+
+/** SQL date string -> "12 April 1996" */
+export function formatFullDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}

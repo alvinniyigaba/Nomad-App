@@ -7,9 +7,17 @@
 // One-time in spirit — safe to leave, since re-running it is a no-op.
 //
 // resource=external-holdings (GET/POST/PATCH/DELETE): manages a user's
-// savings/investment products Nomad doesn't manage. Entered here rather
-// than self-serve, after the user discloses them to Nomad, to keep the
-// data clean.
+// savings/investment products — both Nomad-managed (managedBy: 'nomad')
+// and ones Nomad doesn't manage (managedBy: 'external', the default).
+// External holdings are entered here after the user discloses them, to
+// keep the data clean. Nomad-managed holdings get their value updated by
+// posting a dated snapshot (snapshotDate + snapshotValueMinor on PATCH)
+// rather than overwriting a single number — that history is what drives
+// the real performance chart on Invest.
+//
+// resource=user-profile (PATCH): writes a user's bio-data fields (date of
+// birth, gender, occupation, national ID, address, next of kin). Admin-
+// entered, same reasoning as external-holdings.
 //
 // resource=sync-sheet (GET): reads a published-to-web Google Sheet (CSV) —
 // an append-only transaction log — and posts any new rows as real ledger
@@ -96,31 +104,62 @@ async function handleExternalHoldings(req, res) {
     const userId = await resolveUserId(username);
     if (!userId) return res.status(404).json({ error: 'No such user' });
     const { rows } = await query('SELECT * FROM external_holdings WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
-    return res.status(200).json({ holdings: rows });
+    const holdings = await Promise.all(
+      rows.map(async (h) => {
+        if (h.managed_by !== 'nomad') return h;
+        const { rows: history } = await query(
+          'SELECT value_minor, snapshot_date FROM investment_snapshots WHERE holding_id = $1 ORDER BY snapshot_date ASC',
+          [h.id],
+        );
+        return { ...h, history };
+      }),
+    );
+    return res.status(200).json({ holdings });
   }
 
   if (req.method === 'POST') {
-    const { username, providerName, productType, balanceMinor, interestRateBps, termMonths, maturityDate, notes } = req.body ?? {};
+    const { username, providerName, productType, balanceMinor, interestRateBps, termMonths, maturityDate, notes, managedBy, status } = req.body ?? {};
     if (typeof username !== 'string' || typeof providerName !== 'string' || !providerName.trim()) {
       return res.status(400).json({ error: 'username and providerName are required' });
     }
     if (!['savings', 'fixed_deposit', 'investment', 'other'].includes(productType)) {
       return res.status(400).json({ error: 'productType must be savings, fixed_deposit, investment, or other' });
     }
+    if (managedBy && !['nomad', 'external'].includes(managedBy)) {
+      return res.status(400).json({ error: 'managedBy must be nomad or external' });
+    }
+    if (status && !['active', 'invited'].includes(status)) {
+      return res.status(400).json({ error: 'status must be active or invited' });
+    }
     const userId = await resolveUserId(username);
     if (!userId) return res.status(404).json({ error: 'No such user' });
 
     const { rows } = await query(
-      `INSERT INTO external_holdings (user_id, provider_name, product_type, balance_minor, interest_rate_bps, term_months, maturity_date, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [userId, providerName.trim(), productType, balanceMinor ?? null, interestRateBps ?? null, termMonths ?? null, maturityDate ?? null, notes ?? null],
+      `INSERT INTO external_holdings (user_id, provider_name, product_type, balance_minor, interest_rate_bps, term_months, maturity_date, notes, managed_by, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9,'external'),COALESCE($10,'active')) RETURNING *`,
+      [userId, providerName.trim(), productType, balanceMinor ?? null, interestRateBps ?? null, termMonths ?? null, maturityDate ?? null, notes ?? null, managedBy ?? null, status ?? null],
     );
     return res.status(200).json({ ok: true, holding: rows[0] });
   }
 
   if (req.method === 'PATCH') {
-    const { id, providerName, productType, balanceMinor, interestRateBps, termMonths, maturityDate, notes } = req.body ?? {};
+    const { id, providerName, productType, balanceMinor, interestRateBps, termMonths, maturityDate, notes, managedBy, status, snapshotDate, snapshotValueMinor } = req.body ?? {};
     if (typeof id !== 'string') return res.status(400).json({ error: 'id is required' });
+
+    if (snapshotDate != null || snapshotValueMinor != null) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate ?? '')) return res.status(400).json({ error: 'snapshotDate must be YYYY-MM-DD' });
+      const amount = Number(snapshotValueMinor);
+      if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'snapshotValueMinor must be a non-negative number' });
+      const { rows: holdingRows } = await query('SELECT managed_by FROM external_holdings WHERE id = $1', [id]);
+      if (!holdingRows[0]) return res.status(404).json({ error: 'No such holding' });
+      if (holdingRows[0].managed_by !== 'nomad') return res.status(400).json({ error: 'Snapshots are only for managedBy: nomad holdings' });
+      await query(
+        `INSERT INTO investment_snapshots (holding_id, value_minor, snapshot_date) VALUES ($1,$2,$3)
+         ON CONFLICT (holding_id, snapshot_date) DO UPDATE SET value_minor = EXCLUDED.value_minor`,
+        [id, Math.round(amount), snapshotDate],
+      );
+    }
+
     const { rows } = await query(
       `UPDATE external_holdings SET
          provider_name = COALESCE($2, provider_name),
@@ -130,9 +169,11 @@ async function handleExternalHoldings(req, res) {
          term_months = COALESCE($6, term_months),
          maturity_date = COALESCE($7, maturity_date),
          notes = COALESCE($8, notes),
+         managed_by = COALESCE($9, managed_by),
+         status = COALESCE($10, status),
          updated_at = now()
        WHERE id = $1 RETURNING *`,
-      [id, providerName ?? null, productType ?? null, balanceMinor ?? null, interestRateBps ?? null, termMonths ?? null, maturityDate ?? null, notes ?? null],
+      [id, providerName ?? null, productType ?? null, balanceMinor ?? null, interestRateBps ?? null, termMonths ?? null, maturityDate ?? null, notes ?? null, managedBy ?? null, status ?? null],
     );
     if (!rows[0]) return res.status(404).json({ error: 'No such holding' });
     return res.status(200).json({ ok: true, holding: rows[0] });
@@ -147,6 +188,28 @@ async function handleExternalHoldings(req, res) {
   }
 
   return res.status(405).json({ error: 'Method not allowed' });
+}
+
+async function handleUserProfile(req, res) {
+  if (req.method !== 'PATCH') return res.status(405).json({ error: 'Method not allowed' });
+  const { username, dateOfBirth, gender, occupation, nationalId, address, nextOfKinName, nextOfKinPhone } = req.body ?? {};
+  if (typeof username !== 'string') return res.status(400).json({ error: 'username is required' });
+
+  const { rows } = await query(
+    `UPDATE users SET
+       date_of_birth = COALESCE($2, date_of_birth),
+       gender = COALESCE($3, gender),
+       occupation = COALESCE($4, occupation),
+       national_id = COALESCE($5, national_id),
+       address = COALESCE($6, address),
+       next_of_kin_name = COALESCE($7, next_of_kin_name),
+       next_of_kin_phone = COALESCE($8, next_of_kin_phone)
+     WHERE username = $1
+     RETURNING id, username, date_of_birth, gender, occupation, national_id, address, next_of_kin_name, next_of_kin_phone`,
+    [username.trim().toLowerCase(), dateOfBirth ?? null, gender ?? null, occupation ?? null, nationalId ?? null, address ?? null, nextOfKinName ?? null, nextOfKinPhone ?? null],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'No such user' });
+  return res.status(200).json({ ok: true, user: rows[0] });
 }
 
 /**
@@ -253,5 +316,6 @@ export default async function handler(req, res) {
   if (req.query.resource === 'external-holdings') return handleExternalHoldings(req, res);
   if (req.query.resource === 'sync-sheet') return handleSyncSheet(req, res);
   if (req.query.resource === 'post-entries') return handlePostEntries(req, res);
-  return res.status(400).json({ error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, or post-entries' });
+  if (req.query.resource === 'user-profile') return handleUserProfile(req, res);
+  return res.status(400).json({ error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, post-entries, or user-profile' });
 }

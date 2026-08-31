@@ -35,14 +35,18 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'members must be an array of { username, role: "admin" | "member" }' });
   }
 
+  const isGroup = members.length > 0;
+
   let accountId;
   try {
     accountId = await withTransaction(async (client) => {
       const { rows: [account] } = await client.query(
         `INSERT INTO accounts (user_id, kind, name, target_minor, target_date, is_group)
-         VALUES ($1, 'goal', $2, $3, $4, true) RETURNING id`,
-        [session.user_id, name.trim(), target, targetDate],
+         VALUES ($1, 'goal', $2, $3, $4, $5) RETURNING id`,
+        [session.user_id, name.trim(), target, targetDate, isGroup],
       );
+
+      if (!isGroup) return account.id;
 
       await client.query(
         `INSERT INTO account_members (account_id, user_id, role) VALUES ($1, $2, 'admin')
