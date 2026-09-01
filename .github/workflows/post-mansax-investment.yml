@@ -20,8 +20,7 @@ jobs:
       - name: Create Mansa X holding
         id: create
         run: |
-          set -e
-          RESPONSE=$(curl -sf -X POST "${{ inputs.target_url }}/api/admin?resource=external-holdings&token=${{ secrets.ADMIN_TOKEN }}" \
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X POST "${{ inputs.target_url }}/api/admin?resource=external-holdings&token=${{ secrets.ADMIN_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{
               "username": "niyigaba",
@@ -32,20 +31,41 @@ jobs:
               "interestRateBps": 1800,
               "notes": "KES 300,000 -> UGX 9,450,000 at inception (27 Aug 2026). UGX 96,242 in processing/bank fees charged separately by the bank after transfer landed; not deducted from position value."
             }')
-          echo "$RESPONSE"
-          HOLDING_ID=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['holding']['id'])")
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Create holding failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
+          HOLDING_ID=$(echo "$BODY" | python3 -c "import json,sys; print(json.load(sys.stdin)['holding']['id'])")
           echo "holding_id=$HOLDING_ID" >> "$GITHUB_OUTPUT"
 
       - name: Initial snapshot (2026-08-27, net invested)
         run: |
-          set -e
-          curl -sf -X PATCH "${{ inputs.target_url }}/api/admin?resource=external-holdings&token=${{ secrets.ADMIN_TOKEN }}" \
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X PATCH "${{ inputs.target_url }}/api/admin?resource=external-holdings&token=${{ secrets.ADMIN_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"id": "${{ steps.create.outputs.holding_id }}", "snapshotDate": "2026-08-27", "snapshotValueMinor": 945000000}'
+            -d '{"id": "${{ steps.create.outputs.holding_id }}", "snapshotDate": "2026-08-27", "snapshotValueMinor": 945000000}')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Initial snapshot failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
 
       - name: Current snapshot (2026-09-01, T-rate estimated worth)
         run: |
-          set -e
-          curl -sf -X PATCH "${{ inputs.target_url }}/api/admin?resource=external-holdings&token=${{ secrets.ADMIN_TOKEN }}" \
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X PATCH "${{ inputs.target_url }}/api/admin?resource=external-holdings&token=${{ secrets.ADMIN_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"id": "${{ steps.create.outputs.holding_id }}", "snapshotDate": "2026-09-01", "snapshotValueMinor": 947145049}'
+            -d '{"id": "${{ steps.create.outputs.holding_id }}", "snapshotDate": "2026-09-01", "snapshotValueMinor": 947145049}')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Current snapshot failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
