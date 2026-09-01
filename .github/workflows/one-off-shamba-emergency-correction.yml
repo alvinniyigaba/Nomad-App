@@ -1,0 +1,69 @@
+name: One-off — void Shamba fund and rename Emergency for niyigaba
+
+# Manual, one-time data correction, approved by the user in-session:
+# - Shamba fund's UGX 420,000 balance was seed-fixture data, never real
+#   money, so it's voided with a reversing withdrawal entry (memo makes
+#   clear it's a correction, not a real withdrawal) rather than deleted —
+#   same append-only rule as everywhere else in the ledger.
+# - "Emergency" (the generic seeded liquid-account name) is renamed to
+#   "Liquid" for this user only.
+# Runs on push because this sandbox's egress policy blocks direct POST/PATCH
+# calls to the Vercel domain (GET-only via the Vercel MCP connector) and
+# workflow_dispatch isn't triggerable by this session's GH_TOKEN. Requires
+# an ADMIN_TOKEN repo secret matching the production Vercel env var. Safe to
+# delete this workflow file once it has run successfully.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-off-shamba-emergency-correction.yml'
+
+jobs:
+  correct:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Void Shamba fund's seed-fixture balance
+        run: |
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X POST "https://nomad-app-hntl.vercel.app/api/admin?resource=post-entries&token=${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "entries": [{
+                "idempotencyKey": "shamba-fund-void-2026-09-01",
+                "date": "2026-09-01",
+                "owner": "niyigaba",
+                "accountName": "Shamba fund",
+                "contributor": "niyigaba",
+                "type": "withdrawal",
+                "amountStr": "420000",
+                "memo": "Seed-data correction: balance was never real money, voided before closing this goal"
+              }]
+            }')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Void entry failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
+
+      - name: Rename Emergency to Liquid
+        run: |
+          ACCOUNTS=$(curl -s "https://nomad-app-hntl.vercel.app/api/admin?resource=accounts&username=niyigaba&token=${{ secrets.ADMIN_TOKEN }}")
+          echo "Accounts before rename: $ACCOUNTS"
+          LIQUID_ID=$(echo "$ACCOUNTS" | python3 -c "import json,sys; d=json.load(sys.stdin); print([a['id'] for a in d['accounts'] if a['kind']=='liquid'][0])")
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X PATCH "https://nomad-app-hntl.vercel.app/api/admin?resource=rename-account&token=${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"id\": \"$LIQUID_ID\", \"name\": \"Liquid\"}")
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Rename failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
+
+      - name: Confirm final state
+        run: |
+          curl -s "https://nomad-app-hntl.vercel.app/api/admin?resource=accounts&username=niyigaba&token=${{ secrets.ADMIN_TOKEN }}"
