@@ -3,6 +3,10 @@
     {
       "path": "/api/admin?resource=sync-sheet",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/admin?resource=sync-investments",
+      "schedule": "10 6 * * *"
     }
   ]
 }

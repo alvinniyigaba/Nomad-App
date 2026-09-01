@@ -32,6 +32,16 @@
 // fetching a URL — used when Claude reads a private Google Sheet (via the
 // Drive connection, no "publish to web" needed) and submits what it finds.
 // Caller supplies its own idempotencyKey per row.
+//
+// resource=sync-investments (GET): each pilot user keeps their own sheet
+// (unlike the shared savings ledger), so INVESTMENT_SHEETS is a JSON env
+// var mapping username -> that user's published-to-web CSV URL for just
+// their Investments tab. Reads every mapped sheet, upserts one
+// external_holdings row per Investment Vehicle (created on first sight,
+// managed_by/interest rate/notes refreshed on every run since the sheet
+// is the source of truth), and always upserts today's dated snapshot from
+// Est. Worth — snapshot inserts are ON CONFLICT (holding_id, date) DO
+// UPDATE, so re-running the same day is safe. Runs daily via Vercel Cron.
 import { readFileSync } from 'fs';
 import { db, query } from '../_lib/db.js';
 import { postEntry } from '../_lib/ledger.js';
@@ -278,6 +288,121 @@ async function handleSyncSheet(req, res) {
   return res.status(200).json({ ok: true, ...results });
 }
 
+function parsePercentToBps(str) {
+  const n = Number((str || '').toString().replace('%', '').trim());
+  return Number.isFinite(n) ? Math.round(n * 100) : null;
+}
+
+function parseMoney(str) {
+  const n = Number((str || '').toString().replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Each pilot user keeps their own Google Sheet with an "Investments" tab
+ * (the INVESTMENT MANAGER table). Since it's one sheet per person rather
+ * than a shared ledger, INVESTMENT_SHEETS maps username -> that user's
+ * published-to-web CSV URL for just that tab, and this syncs all of them.
+ */
+async function syncInvestmentsForUser(username, csvUrl, results) {
+  const userId = await resolveUserId(username);
+  if (!userId) {
+    results.errors.push({ username, error: 'Unknown username' });
+    return;
+  }
+
+  const csvRes = await fetch(csvUrl);
+  if (!csvRes.ok) {
+    results.errors.push({ username, error: `Could not fetch sheet (HTTP ${csvRes.status})` });
+    return;
+  }
+  const rows = parseCsv(await csvRes.text());
+  const headerIdx = rows.findIndex((r) => r.some((c) => (c || '').trim().toLowerCase() === 'investment vehicle'));
+  if (headerIdx === -1) {
+    results.errors.push({ username, error: 'Could not find the "Investment Vehicle" header row' });
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  for (const row of rows.slice(headerIdx + 1)) {
+    const [startDate, vehicle, , , , netInvestedStr, tRateStr, , estWorthStr, tcdStr, key] = row;
+    if (!vehicle?.trim()) continue; // blank trailing row
+
+    const providerName = vehicle.trim();
+    const estWorth = parseMoney(estWorthStr);
+    const netInvested = parseMoney(netInvestedStr);
+    const interestRateBps = parsePercentToBps(tRateStr);
+    const tcd = parseMoney(tcdStr);
+    const managedBy = /nomad/i.test(key || '') ? 'nomad' : 'external';
+
+    if (estWorth == null) {
+      results.errors.push({ username, vehicle: providerName, error: `Invalid Est. Worth "${estWorthStr}"` });
+      continue;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test((startDate || '').trim())) {
+      results.errors.push({ username, vehicle: providerName, error: `Invalid Investment Start Date "${startDate}"` });
+      continue;
+    }
+
+    const notes = tcd != null
+      ? `Total cost to date: UGX ${tcd.toLocaleString('en-US')} (processing/bank fees, tracked separately — not deducted from position value).`
+      : null;
+
+    const { rows: existing } = await query(
+      'SELECT id FROM external_holdings WHERE user_id = $1 AND provider_name = $2',
+      [userId, providerName],
+    );
+
+    let holdingId;
+    if (existing[0]) {
+      holdingId = existing[0].id;
+      await query(
+        `UPDATE external_holdings SET interest_rate_bps = $2, notes = COALESCE($3, notes), managed_by = $4, updated_at = now() WHERE id = $1`,
+        [holdingId, interestRateBps, notes, managedBy],
+      );
+    } else {
+      const { rows: created } = await query(
+        `INSERT INTO external_holdings (user_id, provider_name, product_type, managed_by, status, interest_rate_bps, notes)
+         VALUES ($1,$2,'investment',$3,'active',$4,$5) RETURNING id`,
+        [userId, providerName, managedBy, interestRateBps, notes],
+      );
+      holdingId = created[0].id;
+      if (netInvested != null) {
+        await query(
+          `INSERT INTO investment_snapshots (holding_id, value_minor, snapshot_date) VALUES ($1,$2,$3)
+           ON CONFLICT (holding_id, snapshot_date) DO UPDATE SET value_minor = EXCLUDED.value_minor`,
+          [holdingId, Math.round(netInvested * 100), startDate.trim()],
+        );
+      }
+    }
+
+    await query(
+      `INSERT INTO investment_snapshots (holding_id, value_minor, snapshot_date) VALUES ($1,$2,$3)
+       ON CONFLICT (holding_id, snapshot_date) DO UPDATE SET value_minor = EXCLUDED.value_minor`,
+      [holdingId, Math.round(estWorth * 100), today],
+    );
+    results.synced++;
+  }
+}
+
+async function handleSyncInvestments(req, res) {
+  let sheetMap;
+  try {
+    sheetMap = JSON.parse(process.env.INVESTMENT_SHEETS || '{}');
+  } catch {
+    return res.status(500).json({ error: 'INVESTMENT_SHEETS env var is not valid JSON' });
+  }
+  const usernames = Object.keys(sheetMap);
+  if (usernames.length === 0) return res.status(500).json({ error: 'INVESTMENT_SHEETS is not set (or empty)' });
+
+  const results = { synced: 0, errors: [] };
+  for (const username of usernames) {
+    await syncInvestmentsForUser(username, sheetMap[username], results);
+  }
+  return res.status(200).json({ ok: true, ...results });
+}
+
 async function handlePostEntries(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { entries } = req.body ?? {};
@@ -315,7 +440,8 @@ export default async function handler(req, res) {
   if (req.query.resource === 'migrate') return handleMigrate(req, res);
   if (req.query.resource === 'external-holdings') return handleExternalHoldings(req, res);
   if (req.query.resource === 'sync-sheet') return handleSyncSheet(req, res);
+  if (req.query.resource === 'sync-investments') return handleSyncInvestments(req, res);
   if (req.query.resource === 'post-entries') return handlePostEntries(req, res);
   if (req.query.resource === 'user-profile') return handleUserProfile(req, res);
-  return res.status(400).json({ error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, post-entries, or user-profile' });
+  return res.status(400).json({ error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, or user-profile' });
 }
