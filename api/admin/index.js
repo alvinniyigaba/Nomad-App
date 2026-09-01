@@ -50,8 +50,22 @@
 // resource=rename-account (PATCH): renames one of a user's own (non-group)
 // accounts. Group accounts are excluded on purpose — renaming a shared
 // fund is a member decision, not an admin one.
+//
+// resource=create-user (POST): onboards one real pilot user — a users row,
+// a liquid account (no opening entry; a genuinely new user starts at zero,
+// unlike the original fixture users), kyc_status/user_settings at the
+// schema's own defaults. No fake goal or balance history — unlike
+// scripts/seed.mjs, this never touches existing rows.
+//
+// resource=delete-user (DELETE): removes a user and everything that
+// cascades from it (accounts, ledger entries, kyc/settings). For pilot
+// fixture cleanup — e.g. replacing a placeholder record with a properly
+// onboarded one. Refuses (unless forced) if the user has ever contributed
+// to a group account they don't own, since deleting their ledger entries
+// there would silently shrink a shared fund that other members still see.
 import { readFileSync } from 'fs';
-import { db, query } from '../_lib/db.js';
+import bcrypt from 'bcryptjs';
+import { db, query, withTransaction } from '../_lib/db.js';
 import { postEntry } from '../_lib/ledger.js';
 
 async function resolveUserId(username) {
@@ -267,6 +281,62 @@ async function handleRenameAccount(req, res) {
   );
   if (!rows[0]) return res.status(404).json({ error: 'No such individual account' });
   return res.status(200).json({ ok: true, account: rows[0] });
+}
+
+/** Onboards one real pilot user. See top-of-file comment for what it does and doesn't seed. */
+async function handleCreateUser(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const { username, password, pin, name, surname, phoneMasked, email, liquidAccountName } = req.body ?? {};
+  for (const [field, value] of Object.entries({ username, password, pin, name, surname, phoneMasked, email })) {
+    if (typeof value !== 'string' || !value.trim()) return res.status(400).json({ error: `${field} is required` });
+  }
+
+  const normalizedUsername = username.trim().toLowerCase();
+  const existing = await resolveUserId(normalizedUsername);
+  if (existing) return res.status(409).json({ error: `Username "${normalizedUsername}" already exists` });
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const pinHash = await bcrypt.hash(pin, 10);
+
+  const user = await withTransaction(async (client) => {
+    const { rows: [u] } = await client.query(
+      `INSERT INTO users (username, password_hash, pin_hash, name, surname, phone_masked, email, member_since_year)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, username`,
+      [normalizedUsername, passwordHash, pinHash, name.trim(), surname.trim(), phoneMasked.trim(), email.trim(), new Date().getFullYear()],
+    );
+    await client.query('INSERT INTO kyc_status (user_id) VALUES ($1)', [u.id]);
+    await client.query('INSERT INTO user_settings (user_id) VALUES ($1)', [u.id]);
+    await client.query(`INSERT INTO accounts (user_id, kind, name) VALUES ($1,'liquid',$2)`, [u.id, (liquidAccountName || 'Liquid').trim()]);
+    return u;
+  });
+  return res.status(200).json({ ok: true, user: { id: user.id, username: user.username } });
+}
+
+/** Removes a user and everything that cascades from it. See top-of-file comment for the group-fund safety check. */
+async function handleDeleteUser(req, res) {
+  if (req.method !== 'DELETE') return res.status(405).json({ error: 'Method not allowed' });
+  const { username, force } = req.query;
+  if (!username) return res.status(400).json({ error: 'username query param is required' });
+  const userId = await resolveUserId(username);
+  if (!userId) return res.status(404).json({ error: 'No such user' });
+
+  const { rows: groupEntries } = await query(
+    `SELECT DISTINCT a.id, a.name, COALESCE(SUM(l.amount_minor) FILTER (WHERE l.user_id = $1), 0)::bigint AS their_contribution_minor
+     FROM ledger_entries l
+     JOIN accounts a ON a.id = l.account_id
+     WHERE l.user_id = $1 AND a.is_group = true
+     GROUP BY a.id, a.name`,
+    [userId],
+  );
+  if (groupEntries.length > 0 && force !== 'true') {
+    return res.status(409).json({
+      error: 'This user has contributed to group account(s). Deleting them would delete those ledger entries too, shrinking the shared balance. Pass force=true to proceed anyway.',
+      groupAccounts: groupEntries.map((g) => ({ id: g.id, name: g.name, theirContributionMinor: g.their_contribution_minor.toString() })),
+    });
+  }
+
+  await query('DELETE FROM users WHERE id = $1', [userId]);
+  return res.status(200).json({ ok: true });
 }
 
 /**
@@ -493,5 +563,9 @@ export default async function handler(req, res) {
   if (req.query.resource === 'user-profile') return handleUserProfile(req, res);
   if (req.query.resource === 'accounts') return handleAccounts(req, res);
   if (req.query.resource === 'rename-account') return handleRenameAccount(req, res);
-  return res.status(400).json({ error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, or rename-account' });
+  if (req.query.resource === 'create-user') return handleCreateUser(req, res);
+  if (req.query.resource === 'delete-user') return handleDeleteUser(req, res);
+  return res.status(400).json({
+    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, rename-account, create-user, or delete-user',
+  });
 }
