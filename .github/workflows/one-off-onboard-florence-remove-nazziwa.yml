@@ -1,0 +1,71 @@
+name: One-off — onboard florence, remove the nazziwa fixture record
+
+# Manual, one-time data correction, approved by the user in-session:
+# - Creates a real pilot user "florence" (Nazziwa FlorenceAngella) with a
+#   liquid account and no fake starter balance, via resource=create-user.
+# - Removes the existing "nazziwa" user, which was seed-fixture data (same
+#   kind of placeholder as niyigaba's old Shamba fund) being replaced by
+#   the properly onboarded florence account, via resource=delete-user.
+#   That endpoint refuses (rather than deletes) if nazziwa ever
+#   contributed to a group account she doesn't own, since her ledger
+#   entries there would cascade away too — this step deliberately does
+#   NOT pass force=true, so a refusal here means a human decision is
+#   needed, not a bug.
+# Runs on push for the same reason as the other one-off workflows this
+# session: this sandbox's egress policy blocks direct POST/DELETE calls to
+# the Vercel domain, and workflow_dispatch isn't triggerable by this
+# session's token. Requires the ADMIN_TOKEN repo secret. Safe to delete
+# this workflow file once it has run successfully.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-off-onboard-florence-remove-nazziwa.yml'
+
+jobs:
+  correct:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create florence
+        run: |
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X POST "https://nomad-app-hntl.vercel.app/api/admin?resource=create-user&token=${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "username": "florence",
+              "password": "AppTester14",
+              "pin": "1998",
+              "name": "Nazziwa",
+              "surname": "FlorenceAngella",
+              "phoneMasked": "+256 787 424483",
+              "email": "nazziwa.florenceangella@example.com"
+            }')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Create florence failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
+
+      - name: Remove nazziwa (refuses instead of deleting if she has group-fund contributions)
+        run: |
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X DELETE "https://nomad-app-hntl.vercel.app/api/admin?resource=delete-user&username=nazziwa&token=${{ secrets.ADMIN_TOKEN }}")
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" = "409" ]; then
+            echo "::warning::nazziwa has group-fund contributions — NOT deleted. A human needs to decide whether to force this. Details: $BODY"
+          elif [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Remove nazziwa failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
+
+      - name: Confirm final state
+        run: |
+          echo "florence:"
+          curl -s "https://nomad-app-hntl.vercel.app/api/admin?resource=accounts&username=florence&token=${{ secrets.ADMIN_TOKEN }}"
+          echo
+          echo "nazziwa (expect 'No such user' if removed):"
+          curl -s "https://nomad-app-hntl.vercel.app/api/admin?resource=accounts&username=nazziwa&token=${{ secrets.ADMIN_TOKEN }}"
