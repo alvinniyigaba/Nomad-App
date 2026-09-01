@@ -185,7 +185,7 @@ export default function InvestScreen() {
               const inception = h.history?.length ? h.history[0] : null;
               const details = [
                 { label: 'Start date', value: inception ? formatFullDate(inception.date) : '—' },
-                { label: 'Vehicle currency', value: h.investmentCurrency || '—' },
+                { label: 'Investment currency', value: h.investmentCurrency || '—' },
                 { label: 'Interest rate', value: h.interestRateBps ? `${pct(h.interestRateBps / 100)} p.a.` : '—' },
                 { label: 'Managed by', value: 'Nomad' },
                 { label: 'Amount invested (UGX)', value: inception ? ksh(fromMinor(Number(inception.valueMinor))) : '—' },
