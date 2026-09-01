@@ -144,6 +144,10 @@ CREATE TABLE IF NOT EXISTS external_holdings (
 CREATE INDEX IF NOT EXISTS external_holdings_user_id_idx ON external_holdings(user_id);
 ALTER TABLE external_holdings ADD COLUMN IF NOT EXISTS managed_by text NOT NULL DEFAULT 'external' CHECK (managed_by IN ('nomad', 'external'));
 ALTER TABLE external_holdings ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'invited'));
+-- The currency the position is held in (e.g. 'KES'), distinct from the
+-- UGX core-currency amounts everywhere else. Descriptive metadata, not a
+-- derived value, so it's stored directly like notes/interest_rate_bps.
+ALTER TABLE external_holdings ADD COLUMN IF NOT EXISTS investment_currency text;
 
 -- Append-only value history for 'nomad'-managed holdings — powers the real
 -- performance chart. One row per (holding, date); re-posting the same date

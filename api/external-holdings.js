@@ -12,6 +12,7 @@ function serialize(row, history) {
     maturityDate: row.maturity_date,
     notes: row.notes,
     managedBy: row.managed_by,
+    investmentCurrency: row.investment_currency,
     status: row.status,
     updatedAt: row.updated_at,
     // Only populated for managedBy: 'nomad' holdings — current value and

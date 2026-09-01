@@ -19,6 +19,12 @@ export function buildPortfolioSeries(holdings) {
   });
 }
 
+/** Current total value (minor units) across nomad-managed active holdings — the same figure the portfolio chart ends on. */
+export function totalInvestedMinor(holdings) {
+  const series = buildPortfolioSeries(holdings);
+  return series.length ? series[series.length - 1].totalMinor : 0;
+}
+
 /** Change from the last value before this calendar year (or the series' first point) to the latest. */
 export function ytdChangeMinor(series) {
   if (series.length === 0) return 0;

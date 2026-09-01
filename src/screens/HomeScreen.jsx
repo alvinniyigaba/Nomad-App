@@ -9,23 +9,27 @@ import { fmt, ksh, fromMinor, formatMonthYear, capitalize, greeting } from '../u
 import { paceStatus } from '../utils/pacing';
 import { useAppState } from '../state/AppStateContext';
 import { useAccounts } from '../hooks/useAccounts';
+import { useExternalHoldings } from '../hooks/useExternalHoldings';
 import { useKyc } from '../hooks/useKyc';
+import { totalInvestedMinor } from '../utils/investmentSeries';
 
 export default function HomeScreen() {
   const navigate = useNavigate();
   const { user } = useAppState();
   const { status, goal, liquid, groupGoals, error, refetch } = useAccounts();
+  const { holdings } = useExternalHoldings();
   const { kyc } = useKyc();
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
 
-  // Saved is real (the ledger, including group goals); invested and owed
-  // stay mock until loans and investments are wired up, so "Total position"
-  // is a deliberate blend. Same formula as PositionSummaryScreen — keep
-  // them in sync or the two screens' totals will silently diverge.
+  // Saved is real (the ledger, including group goals); invested is real
+  // (nomad-managed holdings' latest snapshot value). Owed stays mock until
+  // loans are wired up. Same formula as PositionSummaryScreen — keep them
+  // in sync or the two screens' totals will silently diverge.
   const saved = fromMinor(goal.balanceMinor) + fromMinor(liquid.balanceMinor) + groupGoals.reduce((sum, g) => sum + fromMinor(g.balanceMinor), 0);
-  const total = saved + position.invested - position.owed;
+  const invested = fromMinor(totalInvestedMinor(holdings));
+  const total = saved + invested - position.owed;
   const pace = paceStatus({ createdAt: goal.createdAt, targetDate: goal.targetDate, targetMinor: goal.targetMinor, balanceMinor: goal.balanceMinor });
 
   return (
@@ -95,7 +99,7 @@ export default function HomeScreen() {
             </div>
             <div onClick={(e) => { e.stopPropagation(); navigate('/invest'); }} style={{ flex: 1, cursor: 'pointer' }}>
               <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>Invested</div>
-              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-on-ink)' }}>{fmt(position.invested)}</div>
+              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-on-ink)' }}>{fmt(invested)}</div>
             </div>
           </div>
         </div>

@@ -63,7 +63,7 @@ export default function YieldCalculator({ holdings = [] }) {
   });
 
   return (
-    <div style={{ marginTop: 30 }}>
+    <div style={{ marginTop: 30, border: '1px solid var(--ink-green)', borderRadius: 8, overflow: 'hidden' }}>
       <div
         onClick={() => setExpanded((v) => !v)}
         role="button"
@@ -71,7 +71,6 @@ export default function YieldCalculator({ holdings = [] }) {
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setExpanded((v) => !v)}
         style={{
           background: 'var(--surface-panel)',
-          borderRadius: 8,
           padding: '16px 20px',
           display: 'flex',
           alignItems: 'center',
@@ -103,7 +102,7 @@ export default function YieldCalculator({ holdings = [] }) {
       </div>
 
       {expanded && (
-        <>
+        <div style={{ padding: '0 20px 20px' }}>
           <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Field label="Starting amount (UGX)">
               <input style={inputStyle()} type="number" min="0" value={principal ?? 0} onChange={(e) => setPrincipal(e.target.value)} />
@@ -139,7 +138,7 @@ export default function YieldCalculator({ holdings = [] }) {
               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 20, color: 'var(--text-heading)' }}>{ksh(result.netValue)}</span>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
