@@ -1,0 +1,51 @@
+name: One-off — post Mansa X investment to production
+
+# Manual, one-time data entry: creates the Mansa X (Nomad-managed) holding
+# for niyigaba from the source-of-truth Google Sheet, plus two dated value
+# snapshots (inception and today's T-rate estimate). Requires an ADMIN_TOKEN
+# repo secret matching the production Vercel env var. Safe to delete this
+# workflow file once it has run successfully.
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Production app base URL'
+        required: true
+        default: 'https://nomad-app-hntl-fcjrg5iyr-alvinniyigabas-projects.vercel.app'
+
+jobs:
+  post-investment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Mansa X holding
+        id: create
+        run: |
+          set -e
+          RESPONSE=$(curl -sf -X POST "${{ inputs.target_url }}/api/admin?resource=external-holdings&token=${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "username": "niyigaba",
+              "providerName": "Mansa X",
+              "productType": "investment",
+              "managedBy": "nomad",
+              "status": "active",
+              "interestRateBps": 1800,
+              "notes": "KES 300,000 -> UGX 9,450,000 at inception (27 Aug 2026). UGX 96,242 in processing/bank fees charged separately by the bank after transfer landed; not deducted from position value."
+            }')
+          echo "$RESPONSE"
+          HOLDING_ID=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['holding']['id'])")
+          echo "holding_id=$HOLDING_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Initial snapshot (2026-08-27, net invested)
+        run: |
+          set -e
+          curl -sf -X PATCH "${{ inputs.target_url }}/api/admin?resource=external-holdings&token=${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"id": "${{ steps.create.outputs.holding_id }}", "snapshotDate": "2026-08-27", "snapshotValueMinor": 945000000}'
+
+      - name: Current snapshot (2026-09-01, T-rate estimated worth)
+        run: |
+          set -e
+          curl -sf -X PATCH "${{ inputs.target_url }}/api/admin?resource=external-holdings&token=${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"id": "${{ steps.create.outputs.holding_id }}", "snapshotDate": "2026-09-01", "snapshotValueMinor": 947145049}'
