@@ -42,6 +42,14 @@
 // is the source of truth), and always upserts today's dated snapshot from
 // Est. Worth — snapshot inserts are ON CONFLICT (holding_id, date) DO
 // UPDATE, so re-running the same day is safe. Runs daily via Vercel Cron.
+//
+// resource=accounts (GET): read-only, a user's own (non-group) accounts
+// with derived balances — for verifying a real balance before posting a
+// correction, without needing that user's own session.
+//
+// resource=rename-account (PATCH): renames one of a user's own (non-group)
+// accounts. Group accounts are excluded on purpose — renaming a shared
+// fund is a member decision, not an admin one.
 import { readFileSync } from 'fs';
 import { db, query } from '../_lib/db.js';
 import { postEntry } from '../_lib/ledger.js';
@@ -221,6 +229,44 @@ async function handleUserProfile(req, res) {
   );
   if (!rows[0]) return res.status(404).json({ error: 'No such user' });
   return res.status(200).json({ ok: true, user: rows[0] });
+}
+
+/** Read-only: a user's own (non-group) accounts with derived balances — for verifying real balances before a correction, same derivation as api/accounts.js. */
+async function handleAccounts(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const { username } = req.query;
+  if (!username) return res.status(400).json({ error: 'username query param is required' });
+  const userId = await resolveUserId(username);
+  if (!userId) return res.status(404).json({ error: 'No such user' });
+
+  const { rows } = await query(
+    `SELECT a.id, a.kind, a.name, a.closed_at,
+            COALESCE(SUM(l.amount_minor), 0)::bigint AS balance_minor
+     FROM accounts a
+     LEFT JOIN ledger_entries l ON l.account_id = a.id
+     WHERE a.user_id = $1 AND a.is_group = false
+     GROUP BY a.id
+     ORDER BY a.kind DESC, a.created_at ASC`,
+    [userId],
+  );
+  return res.status(200).json({
+    accounts: rows.map((r) => ({ id: r.id, kind: r.kind, name: r.name, closedAt: r.closed_at, balanceMinor: r.balance_minor.toString() })),
+  });
+}
+
+/** Renames one of a user's own (non-group) accounts. Group accounts are out of scope — renaming a shared fund is a member decision, not an admin one. */
+async function handleRenameAccount(req, res) {
+  if (req.method !== 'PATCH') return res.status(405).json({ error: 'Method not allowed' });
+  const { id, name } = req.body ?? {};
+  if (typeof id !== 'string' || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'id and name are required' });
+  }
+  const { rows } = await query(
+    `UPDATE accounts SET name = $2 WHERE id = $1 AND is_group = false RETURNING id, kind, name`,
+    [id, name.trim()],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'No such individual account' });
+  return res.status(200).json({ ok: true, account: rows[0] });
 }
 
 /**
@@ -445,5 +491,7 @@ export default async function handler(req, res) {
   if (req.query.resource === 'sync-investments') return handleSyncInvestments(req, res);
   if (req.query.resource === 'post-entries') return handlePostEntries(req, res);
   if (req.query.resource === 'user-profile') return handleUserProfile(req, res);
-  return res.status(400).json({ error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, or user-profile' });
+  if (req.query.resource === 'accounts') return handleAccounts(req, res);
+  if (req.query.resource === 'rename-account') return handleRenameAccount(req, res);
+  return res.status(400).json({ error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, or rename-account' });
 }
