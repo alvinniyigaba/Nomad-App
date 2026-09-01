@@ -11,7 +11,7 @@ on:
       target_url:
         description: 'Production app base URL'
         required: true
-        default: 'https://nomad-app-hntl-fcjrg5iyr-alvinniyigabas-projects.vercel.app'
+        default: 'https://nomad-app-hntl.vercel.app'
 
 jobs:
   post-investment:
