@@ -34,7 +34,7 @@ export default function PositionSummaryScreen() {
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
 
-  const individualSaved = fromMinor(goal.balanceMinor) + fromMinor(liquid.balanceMinor);
+  const individualSaved = fromMinor(goal?.balanceMinor ?? 0) + fromMinor(liquid?.balanceMinor ?? 0);
   const groupTotal = groupGoals.reduce((sum, g) => sum + fromMinor(g.balanceMinor), 0);
   const nomadHoldings = externalHoldings.filter((h) => h.managedBy === 'nomad' && h.status === 'active');
   const invested = fromMinor(totalInvestedMinor(externalHoldings));
@@ -66,10 +66,12 @@ export default function PositionSummaryScreen() {
       </div>
 
       <SectionLabel>Savings</SectionLabel>
-      <div onClick={() => navigate('/save/goal')} style={{ cursor: 'pointer' }}>
-        <Row label={goal.name} value={fmt(fromMinor(goal.balanceMinor))} />
-      </div>
-      <Row label={liquid.name} value={fmt(fromMinor(liquid.balanceMinor))} />
+      {goal && (
+        <div onClick={() => navigate('/save/goal')} style={{ cursor: 'pointer' }}>
+          <Row label={goal.name} value={fmt(fromMinor(goal.balanceMinor))} />
+        </div>
+      )}
+      {liquid && <Row label={liquid.name} value={fmt(fromMinor(liquid.balanceMinor))} />}
 
       {groupGoals.length > 0 && (
         <>

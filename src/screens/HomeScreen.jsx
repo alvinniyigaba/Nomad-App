@@ -27,10 +27,10 @@ export default function HomeScreen() {
   // (nomad-managed holdings' latest snapshot value). Owed stays mock until
   // loans are wired up. Same formula as PositionSummaryScreen — keep them
   // in sync or the two screens' totals will silently diverge.
-  const saved = fromMinor(goal.balanceMinor) + fromMinor(liquid.balanceMinor) + groupGoals.reduce((sum, g) => sum + fromMinor(g.balanceMinor), 0);
+  const saved = fromMinor(goal?.balanceMinor ?? 0) + fromMinor(liquid?.balanceMinor ?? 0) + groupGoals.reduce((sum, g) => sum + fromMinor(g.balanceMinor), 0);
   const invested = fromMinor(totalInvestedMinor(holdings));
   const total = saved + invested - position.owed;
-  const pace = paceStatus({ createdAt: goal.createdAt, targetDate: goal.targetDate, targetMinor: goal.targetMinor, balanceMinor: goal.balanceMinor });
+  const pace = goal ? paceStatus({ createdAt: goal.createdAt, targetDate: goal.targetDate, targetMinor: goal.targetMinor, balanceMinor: goal.balanceMinor }) : null;
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
@@ -153,33 +153,35 @@ export default function HomeScreen() {
           </div>
         </div>
 
-        <div
-          onClick={() => navigate('/save/goal')}
-          style={{
-            background: 'var(--surface-card)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 8,
-            padding: '17px 20px',
-            boxShadow: 'var(--shadow-sm)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 14,
-            cursor: 'pointer',
-          }}
-        >
-          <div style={{ width: 11, height: 11, border: '1.4px solid var(--sand-line)', borderRadius: 6, flex: 'none' }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 400, fontSize: 15, color: 'var(--text-heading)' }}>
-              {goal.name} is {pace?.behindMinor > 0 ? 'behind pace' : 'on pace'}
+        {goal && (
+          <div
+            onClick={() => navigate('/save/goal')}
+            style={{
+              background: 'var(--surface-card)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 8,
+              padding: '17px 20px',
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{ width: 11, height: 11, border: '1.4px solid var(--sand-line)', borderRadius: 6, flex: 'none' }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 400, fontSize: 15, color: 'var(--text-heading)' }}>
+                {goal.name} is {pace?.behindMinor > 0 ? 'behind pace' : 'on pace'}
+              </div>
+              <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
+                {pace?.behindMinor > 0
+                  ? `${ksh(pace.behindMinor / 100)} short of ${formatMonthYear(goal.targetDate)}`
+                  : `${pace?.pctFunded ?? 0}% funded · target ${formatMonthYear(goal.targetDate)}`}
+              </div>
             </div>
-            <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
-              {pace?.behindMinor > 0
-                ? `${ksh(pace.behindMinor / 100)} short of ${formatMonthYear(goal.targetDate)}`
-                : `${pace?.pctFunded ?? 0}% funded · target ${formatMonthYear(goal.targetDate)}`}
-            </div>
+            <div style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)' }}>FUND</div>
           </div>
-          <div style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)' }}>FUND</div>
-        </div>
+        )}
 
         <div
           onClick={() => navigate('/invest')}
