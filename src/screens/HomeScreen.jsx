@@ -129,35 +129,37 @@ export default function HomeScreen() {
       </div>
 
       <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div
-          onClick={() => navigate('/loan')}
-          style={{
-            background: 'var(--surface-ink)',
-            border: '1px solid rgba(201,138,43,0.28)',
-            borderRadius: 8,
-            padding: '18px 20px',
-            boxShadow: 'var(--shadow-md)',
-            cursor: 'pointer',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 11, height: 11, border: '1.4px solid var(--accent-gold)', borderRadius: 6 }} />
-            <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>
-              Due in 6 days
-            </div>
-          </div>
-          <div style={{ marginTop: 12, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontWeight: 400, fontSize: 15, color: 'var(--text-on-ink)' }}>Loan repayment</div>
-              <div style={{ marginTop: 6, fontWeight: 300, fontSize: 12, color: 'var(--text-on-ink-body)' }}>
-                Auto-debit from {loan.nextDue.rail} · {loan.nextDue.date}
+        {loan.nextDue && (
+          <div
+            onClick={() => navigate('/loan')}
+            style={{
+              background: 'var(--surface-ink)',
+              border: '1px solid rgba(201,138,43,0.28)',
+              borderRadius: 8,
+              padding: '18px 20px',
+              boxShadow: 'var(--shadow-md)',
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 11, height: 11, border: '1.4px solid var(--accent-gold)', borderRadius: 6 }} />
+              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>
+                Due in 6 days
               </div>
             </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 21, letterSpacing: '0.03em', color: 'var(--accent-gold)' }}>
-              {fmt(loan.nextDue.amount)}
+            <div style={{ marginTop: 12, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontWeight: 400, fontSize: 15, color: 'var(--text-on-ink)' }}>Loan repayment</div>
+                <div style={{ marginTop: 6, fontWeight: 300, fontSize: 12, color: 'var(--text-on-ink-body)' }}>
+                  Auto-debit from {loan.nextDue.rail} · {loan.nextDue.date}
+                </div>
+              </div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 21, letterSpacing: '0.03em', color: 'var(--accent-gold)' }}>
+                {fmt(loan.nextDue.amount)}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {goal && (
           <div

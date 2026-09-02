@@ -18,24 +18,25 @@ export const rates = {
 // mock until loans and investments are wired up. See HomeScreen.
 export const position = {
   monthChange: 30120,
-  owed: 144000,
+  owed: 0,
   invested: 788500,
 };
 
+// No actual loan outstanding — fully settled, no collateral pledged.
 export const loan = {
-  outstanding: 144000,
+  outstanding: 0,
   principal: 288000,
-  paidInstallments: 6,
+  paidInstallments: 12,
   totalInstallments: 12,
-  nextDue: { date: '5 September', amount: 24000, rail: 'M-Pesa' },
-  pledged: 180000,
-  pledgeUnlocks: '5 December',
+  nextDue: null,
+  pledged: 0,
+  pledgeUnlocks: null,
   schedule: [
     { label: '5 August · paid', amount: 24000, kind: 'paid' },
-    { label: '5 September · due', amount: 24000, kind: 'due' },
-    { label: '5 October', amount: 24000, kind: 'future' },
-    { label: '5 November', amount: 24000, kind: 'future' },
-    { label: '5 December · final', amount: 24000, kind: 'future' },
+    { label: '5 September · paid', amount: 24000, kind: 'paid' },
+    { label: '5 October · paid', amount: 24000, kind: 'paid' },
+    { label: '5 November · paid', amount: 24000, kind: 'paid' },
+    { label: '5 December · paid (final)', amount: 24000, kind: 'paid' },
   ],
 };
 

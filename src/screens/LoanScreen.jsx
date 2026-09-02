@@ -56,18 +56,30 @@ export default function LoanScreen() {
           gap: 16,
         }}
       >
-        <div>
-          <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>
-            Due {loan.nextDue.date}
+        {loan.nextDue ? (
+          <>
+            <div>
+              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>
+                Due {loan.nextDue.date}
+              </div>
+              <div style={{ marginTop: 9, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 24, letterSpacing: '0.03em', color: 'var(--accent-gold)' }}>
+                {ksh(loan.nextDue.amount)}
+              </div>
+              <div style={{ marginTop: 7, fontWeight: 300, fontSize: 12, color: 'var(--text-on-ink-body)' }}>Auto-debit from {loan.nextDue.rail}</div>
+            </div>
+            <Button variant="gold" size="sm">
+              Pay now
+            </Button>
+          </>
+        ) : (
+          <div>
+            <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>Status</div>
+            <div style={{ marginTop: 9, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 24, letterSpacing: '0.03em', color: 'var(--text-on-ink)' }}>
+              Loan settled
+            </div>
+            <div style={{ marginTop: 7, fontWeight: 300, fontSize: 12, color: 'var(--text-on-ink-body)' }}>No repayments scheduled</div>
           </div>
-          <div style={{ marginTop: 9, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 24, letterSpacing: '0.03em', color: 'var(--accent-gold)' }}>
-            {ksh(loan.nextDue.amount)}
-          </div>
-          <div style={{ marginTop: 7, fontWeight: 300, fontSize: 12, color: 'var(--text-on-ink-body)' }}>Auto-debit from {loan.nextDue.rail}</div>
-        </div>
-        <Button variant="gold" size="sm">
-          Pay now
-        </Button>
+        )}
       </div>
 
       <div style={{ marginTop: 26, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
@@ -94,24 +106,26 @@ export default function LoanScreen() {
         </div>
       ))}
 
-      <div
-        style={{
-          marginTop: 20,
-          background: 'var(--surface-panel)',
-          borderRadius: 8,
-          padding: '18px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div style={{ fontWeight: 300, fontSize: 12, lineHeight: 1.6, color: 'var(--text-body)' }}>
-          {ksh(loan.pledged)} pledged · unlocks {loan.pledgeUnlocks}
+      {loan.pledged > 0 && (
+        <div
+          style={{
+            marginTop: 20,
+            background: 'var(--surface-panel)',
+            borderRadius: 8,
+            padding: '18px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div style={{ fontWeight: 300, fontSize: 12, lineHeight: 1.6, color: 'var(--text-body)' }}>
+            {ksh(loan.pledged)} pledged · unlocks {loan.pledgeUnlocks}
+          </div>
+          <div onClick={() => navigate('/save/goal')} style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)', cursor: 'pointer' }}>
+            DETAIL
+          </div>
         </div>
-        <div onClick={() => navigate('/save/goal')} style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)', cursor: 'pointer' }}>
-          DETAIL
-        </div>
-      </div>
+      )}
     </div>
   );
 }
