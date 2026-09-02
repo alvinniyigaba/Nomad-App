@@ -43,9 +43,11 @@
 // Est. Worth — snapshot inserts are ON CONFLICT (holding_id, date) DO
 // UPDATE, so re-running the same day is safe. Runs daily via Vercel Cron.
 //
-// resource=accounts (GET): read-only, a user's own (non-group) accounts
-// with derived balances — for verifying a real balance before posting a
-// correction, without needing that user's own session.
+// resource=accounts (GET): read-only, a user's own accounts and any group
+// accounts they belong to, with derived balances (and member lists for
+// group accounts) — for verifying a real balance, or confirming an exact
+// account name/membership before posting a correction, without needing
+// that user's own session.
 //
 // resource=rename-account (PATCH): renames one of a user's own (non-group)
 // accounts. Group accounts are excluded on purpose — renaming a shared
@@ -73,6 +75,7 @@ import { readFileSync } from 'fs';
 import bcrypt from 'bcryptjs';
 import { db, query, withTransaction } from '../_lib/db.js';
 import { postEntry } from '../_lib/ledger.js';
+import { getAccountMembers } from '../_lib/access.js';
 
 async function resolveUserId(username) {
   if (!username) return null;
@@ -260,18 +263,24 @@ async function handleAccounts(req, res) {
   if (!userId) return res.status(404).json({ error: 'No such user' });
 
   const { rows } = await query(
-    `SELECT a.id, a.kind, a.name, a.closed_at,
+    `SELECT a.id, a.kind, a.name, a.is_group, a.closed_at,
             COALESCE(SUM(l.amount_minor), 0)::bigint AS balance_minor
      FROM accounts a
      LEFT JOIN ledger_entries l ON l.account_id = a.id
-     WHERE a.user_id = $1 AND a.is_group = false
+     WHERE (a.is_group = false AND a.user_id = $1)
+        OR (a.is_group = true AND EXISTS (SELECT 1 FROM account_members m WHERE m.account_id = a.id AND m.user_id = $1))
      GROUP BY a.id
-     ORDER BY a.kind DESC, a.created_at ASC`,
+     ORDER BY a.is_group ASC, a.kind DESC, a.created_at ASC`,
     [userId],
   );
-  return res.status(200).json({
-    accounts: rows.map((r) => ({ id: r.id, kind: r.kind, name: r.name, closedAt: r.closed_at, balanceMinor: r.balance_minor.toString() })),
-  });
+  const accounts = await Promise.all(
+    rows.map(async (r) => {
+      const base = { id: r.id, kind: r.kind, name: r.name, isGroup: r.is_group, closedAt: r.closed_at, balanceMinor: r.balance_minor.toString() };
+      if (!r.is_group) return base;
+      return { ...base, members: await getAccountMembers(r.id) };
+    }),
+  );
+  return res.status(200).json({ accounts });
 }
 
 /** Renames one of a user's own (non-group) accounts. Group accounts are out of scope — renaming a shared fund is a member decision, not an admin one. */
