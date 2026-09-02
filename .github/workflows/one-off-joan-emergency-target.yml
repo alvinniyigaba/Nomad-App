@@ -1,0 +1,57 @@
+name: One-off — zero Joan's Emergency and set her General goal target
+
+# Manual, one-time data corrections requested by the user in-session:
+# 1. Void Joan's UGX 340,000 "Emergency" liquid balance (seed-fixture
+#    data) with a reversing withdrawal.
+# 2. Set Joan's "General" goal target to UGX 3,750,000 by 5 Jan 2027
+#    (same target date as Juliet's General goal).
+# Runs on push for the same reason as the other one-off workflows this
+# session: this sandbox's egress policy blocks direct POST/PATCH calls to
+# the Vercel domain, and workflow_dispatch isn't triggerable by this
+# session's token. Requires the ADMIN_TOKEN repo secret. Safe to delete
+# this workflow file once it has run successfully.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-off-joan-emergency-target.yml'
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Void Joan's Emergency balance
+        run: |
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X POST "https://nomad-app-hntl.vercel.app/api/admin?resource=post-entries&token=${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "entries": [
+                {"idempotencyKey":"joan-emergency-reset-2026-09-02","date":"2026-09-02","owner":"joan","accountName":"Emergency","contributor":"joan","type":"withdrawal","amountStr":"340000","memo":"Seed-data correction: clearing old balance"}
+              ]
+            }')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Void failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
+
+      - name: Set Joan's General goal target
+        run: |
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X PATCH "https://nomad-app-hntl.vercel.app/api/admin?resource=update-account&token=${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"id": "4adbb0d0-a5e6-4455-8c50-cb6791a36e7a", "targetMinor": 375000000, "targetDate": "2027-01-05"}')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Set target failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
+
+      - name: Confirm final state
+        run: |
+          curl -s "https://nomad-app-hntl.vercel.app/api/admin?resource=accounts&username=joan&token=${{ secrets.ADMIN_TOKEN }}"
