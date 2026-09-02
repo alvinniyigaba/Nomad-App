@@ -23,11 +23,17 @@ export default function HomeScreen() {
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
 
-  // Saved is real (the ledger, including group goals); invested is real
-  // (nomad-managed holdings' latest snapshot value). Owed stays mock until
-  // loans are wired up. Same formula as PositionSummaryScreen — keep them
-  // in sync or the two screens' totals will silently diverge.
-  const saved = fromMinor(goal?.balanceMinor ?? 0) + fromMinor(liquid?.balanceMinor ?? 0) + groupGoals.reduce((sum, g) => sum + fromMinor(g.balanceMinor), 0);
+  // Total position is deliberately personal, not household: for a group
+  // goal it counts only this user's own contribution, never the pooled
+  // balance — that full/shared figure belongs on the Position summary
+  // (tap-through) and the Savings screen's own group-goal cards, not here.
+  // Invested is real (nomad-managed holdings' latest snapshot value). Owed
+  // stays mock until loans are wired up.
+  const myGroupContributions = groupGoals.reduce((sum, g) => {
+    const mine = g.members.find((m) => m.username === user?.username)?.contributionMinor ?? '0';
+    return sum + fromMinor(mine);
+  }, 0);
+  const saved = fromMinor(goal?.balanceMinor ?? 0) + fromMinor(liquid?.balanceMinor ?? 0) + myGroupContributions;
   const invested = fromMinor(totalInvestedMinor(holdings));
   const total = saved + invested - position.owed;
   const pace = goal ? paceStatus({ createdAt: goal.createdAt, targetDate: goal.targetDate, targetMinor: goal.targetMinor, balanceMinor: goal.balanceMinor }) : null;
