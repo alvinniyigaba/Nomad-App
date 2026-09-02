@@ -63,6 +63,12 @@
 // onboarded one. Refuses (unless forced) if the user has ever contributed
 // to a group account they don't own, since deleting their ledger entries
 // there would silently shrink a shared fund that other members still see.
+//
+// resource=login-stats (GET): read-only login activity per user, derived
+// from sessions (one row per password login; never purged, so this is a
+// full history since the pilot started). Not page/feature analytics —
+// just login count, first/last login, and how many of those logins
+// completed the PIN step.
 import { readFileSync } from 'fs';
 import bcrypt from 'bcryptjs';
 import { db, query, withTransaction } from '../_lib/db.js';
@@ -339,6 +345,38 @@ async function handleDeleteUser(req, res) {
   return res.status(200).json({ ok: true });
 }
 
+/** Read-only: login activity per user, derived from sessions (one row per password login, never purged). */
+async function handleLoginStats(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  const { rows } = await query(
+    `SELECT u.username,
+            COUNT(s.id) AS login_count,
+            MIN(s.created_at) AS first_login,
+            MAX(s.created_at) AS last_login,
+            COUNT(s.pin_verified_at) AS full_sessions
+     FROM users u
+     LEFT JOIN sessions s ON s.user_id = u.id
+     GROUP BY u.id, u.username
+     ORDER BY last_login DESC NULLS LAST`,
+  );
+  const totalUsers = rows.length;
+  const usersWithLogin = rows.filter((r) => Number(r.login_count) > 0).length;
+
+  return res.status(200).json({
+    totalUsers,
+    usersWithLogin,
+    usersNeverLoggedIn: totalUsers - usersWithLogin,
+    users: rows.map((r) => ({
+      username: r.username,
+      loginCount: Number(r.login_count),
+      fullSessions: Number(r.full_sessions),
+      firstLogin: r.first_login,
+      lastLogin: r.last_login,
+    })),
+  });
+}
+
 /**
  * Validates and posts one transaction-log row. Returns { posted: true },
  * { skipped: true } (already synced under this idempotencyKey), or
@@ -565,7 +603,8 @@ export default async function handler(req, res) {
   if (req.query.resource === 'rename-account') return handleRenameAccount(req, res);
   if (req.query.resource === 'create-user') return handleCreateUser(req, res);
   if (req.query.resource === 'delete-user') return handleDeleteUser(req, res);
+  if (req.query.resource === 'login-stats') return handleLoginStats(req, res);
   return res.status(400).json({
-    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, rename-account, create-user, or delete-user',
+    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, rename-account, create-user, delete-user, or login-stats',
   });
 }
