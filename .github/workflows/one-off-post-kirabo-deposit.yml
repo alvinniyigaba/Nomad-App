@@ -1,0 +1,49 @@
+name: One-off — post Kirabo's deposit to Our First Fund
+
+# Manual, one-time data entry requested by the user in-session: Kirabo
+# (username hisbabe, admin on the "Our First Fund" shared group goal
+# alongside niyigaba) made a real UGX 125,000 deposit. Posted via
+# resource=post-entries with a stable idempotency key so a retry can
+# never double-post.
+# Runs on push for the same reason as the other one-off workflows this
+# session: this sandbox's egress policy blocks direct POST calls to the
+# Vercel domain, and workflow_dispatch isn't triggerable by this
+# session's token. Safe to delete once it has run successfully.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-off-post-kirabo-deposit.yml'
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post Kirabo's deposit
+        run: |
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X POST "https://nomad-app-hntl.vercel.app/api/admin?resource=post-entries&token=${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "entries": [{
+                "idempotencyKey": "kirabo-deposit-2026-09-02-125000",
+                "date": "2026-09-02",
+                "owner": "",
+                "accountName": "Our First Fund",
+                "contributor": "hisbabe",
+                "type": "deposit",
+                "amountStr": "125000",
+                "memo": "Deposit"
+              }]
+            }')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Post deposit failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
+
+      - name: Confirm final balance
+        run: |
+          curl -s "https://nomad-app-hntl.vercel.app/api/admin?resource=accounts&username=niyigaba&token=${{ secrets.ADMIN_TOKEN }}"
