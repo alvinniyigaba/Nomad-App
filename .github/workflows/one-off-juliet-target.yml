@@ -1,0 +1,32 @@
+name: One-off — set Juliet's General goal target
+
+# Manual, one-time data entry requested by the user in-session: set
+# Juliet's "General" goal target to UGX 3,250,000 by 5 Jan 2027, via the
+# new resource=update-account.
+# Runs on push for the same reason as the other one-off workflows this
+# session: this sandbox's egress policy blocks direct PATCH calls to the
+# Vercel domain, and workflow_dispatch isn't triggerable by this
+# session's token. Safe to delete once it has run successfully.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-off-juliet-target.yml'
+
+jobs:
+  set-target:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set target
+        run: |
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X PATCH "https://nomad-app-hntl.vercel.app/api/admin?resource=update-account&token=${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"id": "6b180643-118d-4bbe-b51b-c3aa6dd9e628", "targetMinor": 325000000, "targetDate": "2027-01-05"}')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Set target failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
