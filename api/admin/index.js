@@ -49,9 +49,10 @@
 // account name/membership before posting a correction, without needing
 // that user's own session.
 //
-// resource=rename-account (PATCH): renames one of a user's own (non-group)
-// accounts. Group accounts are excluded on purpose — renaming a shared
-// fund is a member decision, not an admin one.
+// resource=update-account (PATCH): edits the name and/or target
+// (targetMinor, targetDate) of one of a user's own (non-group) accounts.
+// Group accounts are excluded on purpose — editing a shared fund is a
+// member decision, not an admin one.
 //
 // resource=create-user (POST): onboards one real pilot user — a users row,
 // a liquid account (no opening entry; a genuinely new user starts at zero,
@@ -284,15 +285,27 @@ async function handleAccounts(req, res) {
 }
 
 /** Renames one of a user's own (non-group) accounts. Group accounts are out of scope — renaming a shared fund is a member decision, not an admin one. */
-async function handleRenameAccount(req, res) {
+async function handleUpdateAccount(req, res) {
   if (req.method !== 'PATCH') return res.status(405).json({ error: 'Method not allowed' });
-  const { id, name } = req.body ?? {};
-  if (typeof id !== 'string' || typeof name !== 'string' || !name.trim()) {
-    return res.status(400).json({ error: 'id and name are required' });
+  const { id, name, targetMinor, targetDate } = req.body ?? {};
+  if (typeof id !== 'string') return res.status(400).json({ error: 'id is required' });
+  if (name == null && targetMinor == null && targetDate == null) {
+    return res.status(400).json({ error: 'Provide at least one of name, targetMinor, targetDate' });
+  }
+  if (name != null && (typeof name !== 'string' || !name.trim())) {
+    return res.status(400).json({ error: 'name must be a non-empty string' });
+  }
+  if (targetDate != null && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+    return res.status(400).json({ error: 'targetDate must be YYYY-MM-DD' });
   }
   const { rows } = await query(
-    `UPDATE accounts SET name = $2 WHERE id = $1 AND is_group = false RETURNING id, kind, name`,
-    [id, name.trim()],
+    `UPDATE accounts SET
+       name = COALESCE($2, name),
+       target_minor = COALESCE($3, target_minor),
+       target_date = COALESCE($4, target_date)
+     WHERE id = $1 AND is_group = false
+     RETURNING id, kind, name, target_minor, target_date`,
+    [id, name?.trim() ?? null, targetMinor ?? null, targetDate ?? null],
   );
   if (!rows[0]) return res.status(404).json({ error: 'No such individual account' });
   return res.status(200).json({ ok: true, account: rows[0] });
@@ -609,11 +622,11 @@ export default async function handler(req, res) {
   if (req.query.resource === 'post-entries') return handlePostEntries(req, res);
   if (req.query.resource === 'user-profile') return handleUserProfile(req, res);
   if (req.query.resource === 'accounts') return handleAccounts(req, res);
-  if (req.query.resource === 'rename-account') return handleRenameAccount(req, res);
+  if (req.query.resource === 'update-account') return handleUpdateAccount(req, res);
   if (req.query.resource === 'create-user') return handleCreateUser(req, res);
   if (req.query.resource === 'delete-user') return handleDeleteUser(req, res);
   if (req.query.resource === 'login-stats') return handleLoginStats(req, res);
   return res.status(400).json({
-    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, rename-account, create-user, delete-user, or login-stats',
+    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, or login-stats',
   });
 }
