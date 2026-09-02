@@ -1,0 +1,52 @@
+name: One-off — zero Kirabo's fictitious individual balances
+
+# Manual, one-time data correction requested by the user in-session: the
+# only real figures in Kirabo's (username hisbabe) account are her
+# contributions to the shared "Our First Fund" group goal. Her individual
+# accounts — Emergency (liquid, UGX 65,000) and School fees (goal, UGX
+# 231,740) — are seed-fixture data and get voided with reversing
+# withdrawals, same append-only approach used everywhere else. Our First
+# Fund is untouched.
+# Runs on push for the same reason as the other one-off workflows this
+# session: this sandbox's egress policy blocks direct POST calls to the
+# Vercel domain, and workflow_dispatch isn't triggerable by this
+# session's token. Requires the ADMIN_TOKEN repo secret. Safe to delete
+# this workflow file once it has run successfully.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-off-kirabo-individual-zero.yml'
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Void Emergency and School fees
+        run: |
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X POST "https://nomad-app-hntl.vercel.app/api/admin?resource=post-entries&token=${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "entries": [
+                {"idempotencyKey":"hisbabe-emergency-reset-2026-09-02","date":"2026-09-02","owner":"hisbabe","accountName":"Emergency","contributor":"hisbabe","type":"withdrawal","amountStr":"65000","memo":"Seed-data correction: clearing old balance"},
+                {"idempotencyKey":"hisbabe-schoolfees-reset-2026-09-02","date":"2026-09-02","owner":"hisbabe","accountName":"School fees","contributor":"hisbabe","type":"withdrawal","amountStr":"231740","memo":"Seed-data correction: clearing old balance"}
+              ]
+            }')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Void failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
+          if echo "$BODY" | grep -q '"errors":\[\]' ; then
+            echo "All entries posted cleanly."
+          else
+            echo "::error::Some entries had errors — $BODY"
+            exit 1
+          fi
+
+      - name: Confirm final state
+        run: |
+          curl -s "https://nomad-app-hntl.vercel.app/api/admin?resource=accounts&username=hisbabe&token=${{ secrets.ADMIN_TOKEN }}"
