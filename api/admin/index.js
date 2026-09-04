@@ -72,10 +72,20 @@
 // full history since the pilot started). Not page/feature analytics —
 // just login count, first/last login, and how many of those logins
 // completed the PIN step.
+//
+// resource=reconciliation (GET): read-only, every user's position in one
+// call — individual account balances, their own contribution to each
+// group account they belong to, and their investment holdings with the
+// latest dated snapshot. Exists so the fund administration spreadsheet
+// can be driven from the app's ledger rather than typed in beside it:
+// the ledger is the source of truth, this is the extract the sheet
+// reconciles against. Group contributions are split per member (the
+// sheet needs "who put in what", which the pooled account balance alone
+// can't tell you). Money figures are minor units, as strings.
 import { readFileSync } from 'fs';
 import bcrypt from 'bcryptjs';
 import { db, query, withTransaction } from '../_lib/db.js';
-import { postEntry } from '../_lib/ledger.js';
+import { getContributionsByAccount, postEntry } from '../_lib/ledger.js';
 import { getAccountMembers } from '../_lib/access.js';
 
 async function resolveUserId(username) {
@@ -278,7 +288,13 @@ async function handleAccounts(req, res) {
     rows.map(async (r) => {
       const base = { id: r.id, kind: r.kind, name: r.name, isGroup: r.is_group, closedAt: r.closed_at, balanceMinor: r.balance_minor.toString() };
       if (!r.is_group) return base;
-      return { ...base, members: await getAccountMembers(r.id) };
+      // Who put in what — the pooled balance alone can't answer that, and
+      // reconciling a shared fund against an external record needs it.
+      const [members, contributions] = await Promise.all([getAccountMembers(r.id), getContributionsByAccount(r.id)]);
+      return {
+        ...base,
+        members: members.map((m) => ({ ...m, contributionMinor: (contributions[m.userId] ?? 0n).toString() })),
+      };
     }),
   );
   return res.status(200).json({ accounts });
@@ -396,6 +412,130 @@ async function handleLoginStats(req, res) {
       firstLogin: r.first_login,
       lastLogin: r.last_login,
     })),
+  });
+}
+
+/**
+ * Read-only: the whole pilot's position in one call, for reconciling an
+ * external fund-administration record against the ledger. Savings figures
+ * are derived from ledger_entries (the same sums the app itself shows);
+ * investment figures come from the latest dated snapshot per holding.
+ *
+ * savingsTotalMinor per user = their individual account balances plus
+ * their own contributions to group accounts — deliberately personal, the
+ * same basis the Home screen's Total position uses, so a member statement
+ * in a spreadsheet can be compared against it line for line. Closed
+ * accounts are reported (with closedAt set) rather than dropped, since an
+ * external record may still carry a row for one.
+ */
+async function handleReconciliation(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  const [{ rows: users }, { rows: individual }, { rows: groupContributions }, { rows: holdings }] = await Promise.all([
+    query('SELECT id, username, name, surname FROM users ORDER BY username'),
+    query(
+      `SELECT a.user_id, a.id, a.kind, a.name, a.closed_at,
+              COALESCE(SUM(l.amount_minor), 0)::bigint AS balance_minor
+       FROM accounts a
+       LEFT JOIN ledger_entries l ON l.account_id = a.id
+       WHERE a.is_group = false
+       GROUP BY a.id
+       ORDER BY a.kind DESC, a.created_at ASC`,
+    ),
+    // One row per (member, group account): what that member alone put in,
+    // alongside the pooled total so both sides of a shared fund reconcile.
+    query(
+      `SELECT l.user_id, a.id AS account_id, a.name,
+              COALESCE(SUM(l.amount_minor), 0)::bigint AS contribution_minor,
+              (SELECT COALESCE(SUM(l2.amount_minor), 0)::bigint FROM ledger_entries l2 WHERE l2.account_id = a.id) AS account_balance_minor
+       FROM accounts a
+       JOIN ledger_entries l ON l.account_id = a.id
+       WHERE a.is_group = true
+       GROUP BY l.user_id, a.id
+       ORDER BY a.name`,
+    ),
+    query(
+      `SELECT h.user_id, h.id, h.provider_name, h.product_type, h.managed_by, h.status,
+              h.investment_currency, h.interest_rate_bps, h.notes,
+              s.value_minor AS latest_value_minor, s.snapshot_date AS latest_snapshot_date
+       FROM external_holdings h
+       LEFT JOIN LATERAL (
+         SELECT value_minor, snapshot_date FROM investment_snapshots
+         WHERE holding_id = h.id ORDER BY snapshot_date DESC LIMIT 1
+       ) s ON true
+       ORDER BY h.created_at ASC`,
+    ),
+  ]);
+
+  const byUser = new Map(users.map((u) => [u.id, u]));
+  const bucket = (id) => {
+    const u = byUser.get(id);
+    return u ? (u.rows ??= { individualAccounts: [], groupContributions: [], investments: [] }) : null;
+  };
+  for (const r of individual) {
+    bucket(r.user_id)?.individualAccounts.push({
+      id: r.id,
+      kind: r.kind,
+      name: r.name,
+      closedAt: r.closed_at,
+      balanceMinor: r.balance_minor.toString(),
+    });
+  }
+  for (const r of groupContributions) {
+    bucket(r.user_id)?.groupContributions.push({
+      accountId: r.account_id,
+      accountName: r.name,
+      contributionMinor: r.contribution_minor.toString(),
+      accountBalanceMinor: r.account_balance_minor.toString(),
+    });
+  }
+  for (const r of holdings) {
+    bucket(r.user_id)?.investments.push({
+      id: r.id,
+      providerName: r.provider_name,
+      productType: r.product_type,
+      managedBy: r.managed_by,
+      status: r.status,
+      investmentCurrency: r.investment_currency,
+      interestRateBps: r.interest_rate_bps,
+      notes: r.notes,
+      latestValueMinor: r.latest_value_minor === null ? null : r.latest_value_minor.toString(),
+      latestSnapshotDate: r.latest_snapshot_date,
+    });
+  }
+
+  let savingsTotal = 0n;
+  let investmentTotal = 0n;
+  const out = users.map((u) => {
+    const { individualAccounts = [], groupContributions: groups = [], investments = [] } = u.rows ?? {};
+    const savings =
+      individualAccounts.reduce((sum, a) => sum + BigInt(a.balanceMinor), 0n) +
+      groups.reduce((sum, g) => sum + BigInt(g.contributionMinor), 0n);
+    // Mirrors the app's own Invested figure: nomad-managed and still active.
+    const invested = investments
+      .filter((h) => h.managedBy === 'nomad' && h.status === 'active' && h.latestValueMinor !== null)
+      .reduce((sum, h) => sum + BigInt(h.latestValueMinor), 0n);
+    savingsTotal += savings;
+    investmentTotal += invested;
+    return {
+      username: u.username,
+      fullName: `${u.name} ${u.surname}`.trim(),
+      individualAccounts,
+      groupContributions: groups,
+      investments,
+      savingsTotalMinor: savings.toString(),
+      investmentValueMinor: invested.toString(),
+    };
+  });
+
+  return res.status(200).json({
+    asOf: new Date().toISOString(),
+    totals: {
+      users: users.length,
+      savingsMinor: savingsTotal.toString(),
+      investmentValueMinor: investmentTotal.toString(),
+    },
+    users: out,
   });
 }
 
@@ -626,7 +766,8 @@ export default async function handler(req, res) {
   if (req.query.resource === 'create-user') return handleCreateUser(req, res);
   if (req.query.resource === 'delete-user') return handleDeleteUser(req, res);
   if (req.query.resource === 'login-stats') return handleLoginStats(req, res);
+  if (req.query.resource === 'reconciliation') return handleReconciliation(req, res);
   return res.status(400).json({
-    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, or login-stats',
+    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, login-stats, or reconciliation',
   });
 }

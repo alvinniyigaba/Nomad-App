@@ -73,6 +73,49 @@ EXISTS` + `ALTER TABLE ADD COLUMN IF NOT EXISTS`, applied via
 - `sync-sheet` (GET) — reads a published-CSV shared savings ledger sheet, posts new rows as ledger entries. Runs daily via Vercel Cron.
 - `post-entries` (POST) — same validation as sync-sheet but takes pre-parsed rows directly (used when Claude reads a *private* sheet via the Drive connector and submits what it finds, avoiding "publish to web")
 - `sync-investments` (GET) — **new this session**, see below. Runs daily via Vercel Cron.
+- `accounts` (GET) — a user's own accounts plus any group accounts they belong to; group accounts list each member with their own `contributionMinor`
+- `login-stats` (GET) — login activity per user, derived from `sessions`
+- `reconciliation` (GET) — every user's position in one call, for matching an external fund record against the ledger. See below.
+
+## Reconciling the fund administration spreadsheet
+
+There is a separate Google Sheet, **`Nomad_Fund_Admin`** ("Nomad Ventures
+LLP — Member Fund"), that does unit/NAV fund accounting: member register,
+contributions ledger, monthly NAV strike, unit register, investments,
+transactions, loans, member statements. **It is not wired into this
+codebase at all** — nothing reads or writes it, and it is not in
+`INVESTMENT_SHEETS`.
+
+**Direction of truth: the app's ledger and the individual account sheets
+are primary; the fund sheet is downstream.** It reports on money that
+already exists in the ledger — it never originates a balance. Concretely:
+
+- A contribution enters through the normal path (a user's own sheet →
+  `post-entries`/`sync-sheet` → `ledger_entries`), *then* gets reflected
+  in the fund sheet. Never typed into the fund sheet first.
+- Investment values come from `investment_snapshots` (fed by
+  `sync-investments` from each user's own Investments tab). The fund
+  sheet's "Current Value" column mirrors the latest snapshot; it is not
+  an independent estimate.
+- If a figure disagrees, the ledger wins and the sheet gets corrected.
+
+`?resource=reconciliation` is the extract for this: one read-only call
+returning, per user, their individual account balances, their own
+contribution to each group account (split per member — the pooled balance
+alone can't tell you who put in what), and each holding's latest dated
+snapshot, plus fund-wide totals. Paste it into a "From App" tab and let
+the sheet's own checks compare against it, rather than re-keying figures
+by hand.
+
+Two things this guards against, both of which had already happened:
+
+1. **Money in the app that the sheet doesn't know about.** Group-account
+   contributions are invisible unless split per member, so a member's
+   share of a shared fund can be missing from the unit register entirely.
+2. **Double counting.** A contribution entered directly into the fund
+   sheet *and* synced from the member's own sheet is counted twice. The
+   rule above (ledger first, sheet reports) removes the need for
+   remember-not-to-import notes.
 
 ## Google Sheets integration
 
