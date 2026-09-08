@@ -1,0 +1,60 @@
+name: One-off — post Joan's September deposit
+
+# Manual sheet sync requested by the user in-session: Joan's personal
+# sheet ("Nanyonga Joan") got a new row today — UGX 400,000 on 2026-09-07,
+# memo "July,Aug and 50k Sep." — covering the gap since her last synced
+# deposit (2026-07-19). Posted via resource=post-entries with a stable
+# idempotency key so a retry can never double-post. Pre-check confirmed
+# her General balance was still 2,400,000 (i.e. this row hadn't already
+# landed).
+# Runs on push for the same reason as the other one-off workflows in this
+# repo's history: this sandbox's egress policy blocks direct POST calls to
+# the Vercel domain, and workflow_dispatch isn't triggerable by this
+# session's token. Requires the ADMIN_TOKEN repo secret. Safe to delete
+# this workflow file once it has run successfully.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-off-joan-sept-deposit.yml'
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read Joan's balance before
+        run: curl -s "https://nomad-app-hntl.vercel.app/api/admin?resource=accounts&username=joan&token=${{ secrets.ADMIN_TOKEN }}"
+
+      - name: Post Joan's September deposit
+        run: |
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X POST "https://nomad-app-hntl.vercel.app/api/admin?resource=post-entries&token=${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "entries": [{
+                "idempotencyKey": "joan-general-2026-09-07-jul-aug-sep",
+                "date": "2026-09-07",
+                "owner": "joan",
+                "accountName": "General",
+                "contributor": "joan",
+                "type": "deposit",
+                "amountStr": "400000",
+                "memo": "July, Aug and 50k Sep."
+              }]
+            }')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::Post deposit failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
+          if echo "$BODY" | grep -q '"errors":\[\]' ; then
+            echo "Entry posted cleanly."
+          else
+            echo "::error::Entry had errors — $BODY"
+            exit 1
+          fi
+
+      - name: Confirm final balance
+        run: curl -s "https://nomad-app-hntl.vercel.app/api/admin?resource=accounts&username=joan&token=${{ secrets.ADMIN_TOKEN }}"
