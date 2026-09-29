@@ -1,0 +1,48 @@
+name: One-off — set Morris's Prudential start date and amount invested
+
+# Requested by the user in-session. The Invest screen now shows external
+# holdings with the same details as Nomad ones, reading Start date and
+# Amount invested from the new external_holdings.start_date /
+# invested_minor columns (added by resource=migrate, already run). Morris's
+# Prudential holding predates those columns, so this fills them from his
+# sheet: Investment Start Date 2025-06-13, Net Invested UGX 4,500,000.
+# PATCH only touches the fields it's given; re-running sets the same values.
+#
+# Runs on push for the same reason as the other one-off workflows in this
+# repo's history: this sandbox's egress policy blocks direct PATCH calls to
+# the Vercel domain, and workflow_dispatch isn't triggerable by this
+# session's token. Requires the ADMIN_TOKEN repo secret. Safe to delete
+# this workflow file once it has run successfully.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-off-morris-prudential-details.yml'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read Morris's holdings before
+        run: curl -s "https://nomad-app-hntl.vercel.app/api/admin?resource=external-holdings&username=munezero&token=${{ secrets.ADMIN_TOKEN }}"
+
+      - name: Set start date and amount invested
+        run: |
+          RESPONSE=$(curl -s -w '\nHTTP_STATUS:%{http_code}' -X PATCH "https://nomad-app-hntl.vercel.app/api/admin?resource=external-holdings&token=${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"id":"a5a7c9d3-34ee-4929-88b8-32240aceeeb4","startDate":"2025-06-13","investedMinor":450000000}')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -o 'HTTP_STATUS:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:[0-9]*$//')
+          echo "Response body: $BODY"
+          echo "HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::PATCH failed with HTTP $HTTP_STATUS — $BODY"
+            exit 1
+          fi
+          if ! echo "$BODY" | grep -q '"invested_minor":"450000000"'; then
+            echo "::error::Response did not confirm invested_minor — $BODY"
+            exit 1
+          fi
+
+      - name: Confirm final state
+        run: curl -s "https://nomad-app-hntl.vercel.app/api/admin?resource=external-holdings&username=munezero&token=${{ secrets.ADMIN_TOKEN }}"
