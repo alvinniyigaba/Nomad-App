@@ -122,10 +122,11 @@ CREATE TABLE IF NOT EXISTS user_settings (
 -- ones Nomad does not manage (managed_by='external', the default — self-
 -- reported by the user and entered by an admin, never touches
 -- ledger_entries because no real money moves through Nomad for those).
--- balance_minor is the current value for an 'external' holding (a single
--- number an admin updates in place); for a 'nomad' holding it's unused —
--- current value is instead derived from investment_snapshots below, same
--- "never store what you can derive" rule as the ledger.
+-- balance_minor is the current value for an 'external' holding: a single
+-- number, set by an admin or by sync-investments from the sheet's Est.
+-- Worth, and counted toward the member's position. For a 'nomad' holding
+-- it's unused — current value is instead derived from investment_snapshots
+-- below, same "never store what you can derive" rule as the ledger.
 CREATE TABLE IF NOT EXISTS external_holdings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,

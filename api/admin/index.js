@@ -41,7 +41,9 @@
 // managed_by/interest rate/notes refreshed on every run since the sheet
 // is the source of truth), and always upserts today's dated snapshot from
 // Est. Worth — snapshot inserts are ON CONFLICT (holding_id, date) DO
-// UPDATE, so re-running the same day is safe. Runs daily via Vercel Cron.
+// UPDATE, so re-running the same day is safe. External (non-Nomad) rows
+// also get balance_minor set from Est. Worth, since that's the field the
+// app reads for them. Runs daily via Vercel Cron.
 //
 // resource=accounts (GET): read-only, a user's own accounts and any group
 // accounts they belong to, with derived balances (and member lists for
@@ -465,13 +467,19 @@ async function handleSyncSheet(req, res) {
   return res.status(200).json({ ok: true, ...results });
 }
 
+// A blank sheet cell means "no value", not zero — Number('') is 0, which
+// would silently write a zero balance/rate/cost for anything left empty.
 function parsePercentToBps(str) {
-  const n = Number((str || '').toString().replace('%', '').trim());
+  const text = (str || '').toString().replace('%', '').trim();
+  if (text === '') return null;
+  const n = Number(text);
   return Number.isFinite(n) ? Math.round(n * 100) : null;
 }
 
 function parseMoney(str) {
-  const n = Number((str || '').toString().replace(/,/g, '').trim());
+  const text = (str || '').toString().replace(/,/g, '').trim();
+  if (text === '') return null;
+  const n = Number(text);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -560,6 +568,13 @@ async function syncInvestmentsForUser(username, csvUrl, results) {
        ON CONFLICT (holding_id, snapshot_date) DO UPDATE SET value_minor = EXCLUDED.value_minor`,
       [holdingId, Math.round(estWorth * 100), today],
     );
+    // A Nomad-managed holding's value is derived from its snapshots, but an
+    // external one has no history to derive from — the app reads its plain
+    // balance_minor. Without this the card shows no value and the holding
+    // can't count toward the member's position.
+    if (managedBy === 'external') {
+      await query('UPDATE external_holdings SET balance_minor = $2, updated_at = now() WHERE id = $1', [holdingId, Math.round(estWorth * 100)]);
+    }
     results.synced++;
   }
 }

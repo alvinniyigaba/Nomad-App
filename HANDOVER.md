@@ -49,7 +49,7 @@ this session since production traffic is confirmed to be on
 | `ledger_entries` | the append-only source of truth for all balances |
 | `kyc_status` | per-user KYC step flags |
 | `user_settings` | notification/language toggles |
-| `external_holdings` | savings/investment products — `managed_by` is `'nomad'` (Nomad actually manages it, value comes from snapshots) or `'external'` (self-reported, `balance_minor` is a plain admin-updated number) |
+| `external_holdings` | savings/investment products — `managed_by` is `'nomad'` (Nomad actually manages it, value comes from snapshots) or `'external'` (on record but not run by Nomad; `balance_minor` is a plain number — set by an admin, or by `sync-investments` from the sheet's Est. Worth — and it **counts toward the member's Invested/Total position**) |
 | `investment_snapshots` | dated value history per `nomad`-managed holding — one row per (holding, date), re-posting the same date corrects it rather than duplicating |
 
 Migrations are idempotent — `db/schema.sql` uses `CREATE TABLE IF NOT
@@ -107,6 +107,18 @@ always upserts **today's** snapshot from "Est. Worth". On first sight of a
 holding it also backfills an inception snapshot from "Net Invested" at the
 "Investment Start Date". All snapshot writes are `ON CONFLICT (holding_id,
 snapshot_date) DO UPDATE`, so re-running the same day is always safe.
+
+**External rows (Key without "Nomad")** also get `balance_minor` set from
+"Est. Worth" on every run — the app reads that field for them, since they
+have no snapshot history to derive a value from. Home's "Invested" and the
+Position summary count Nomad-managed holdings (from snapshots) **plus**
+active external holdings that carry a balance
+(`positionInvestedMinor` in `src/utils/investmentSeries.js`); the Invest
+screen's headline figure and chart stay Nomad-only, so that number can be
+lower than Home's. A blank cell means "no value", not zero: a blank Est.
+Worth is rejected (the row is skipped and reported in `errors`), and a
+blank TCD leaves the holding's notes alone — so a hand-written note on an
+external holding survives re-syncs.
 
 **Financial modeling note:** "Net Invested"/"Current Holding" and "Est.
 Worth" deliberately exclude bank/processing fees — those are tracked

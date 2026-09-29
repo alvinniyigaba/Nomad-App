@@ -6,7 +6,7 @@ import { fmt, ksh, fromMinor } from '../utils/format';
 import { useAppState } from '../state/AppStateContext';
 import { useAccounts } from '../hooks/useAccounts';
 import { useExternalHoldings } from '../hooks/useExternalHoldings';
-import { totalInvestedMinor } from '../utils/investmentSeries';
+import { positionInvestedMinor } from '../utils/investmentSeries';
 
 function Row({ label, value, muted, indent }) {
   return (
@@ -37,10 +37,8 @@ export default function PositionSummaryScreen() {
   const individualSaved = fromMinor(goal?.balanceMinor ?? 0) + fromMinor(liquid?.balanceMinor ?? 0);
   const groupTotal = groupGoals.reduce((sum, g) => sum + fromMinor(g.balanceMinor), 0);
   const nomadHoldings = externalHoldings.filter((h) => h.managedBy === 'nomad' && h.status === 'active');
-  const invested = fromMinor(totalInvestedMinor(externalHoldings));
-  const externalTotal = externalHoldings
-    .filter((h) => h.managedBy === 'external')
-    .reduce((sum, h) => sum + (h.balanceMinor != null ? fromMinor(h.balanceMinor) : 0), 0);
+  const onRecordHoldings = externalHoldings.filter((h) => h.managedBy === 'external' && h.status === 'active');
+  const invested = fromMinor(positionInvestedMinor(externalHoldings));
   // Same fields Home's collapsed card sums, plus group goals — keeps the two screens' totals from ever silently diverging.
   const total = individualSaved + groupTotal + invested - position.owed;
 
@@ -91,15 +89,23 @@ export default function PositionSummaryScreen() {
       )}
 
       <SectionLabel>Investments</SectionLabel>
-      {nomadHoldings.length > 0 ? (
-        nomadHoldings.map((h) => {
-          const latest = h.history?.length ? fromMinor(Number(h.history[h.history.length - 1].valueMinor)) : null;
-          return (
+      {nomadHoldings.length > 0 || onRecordHoldings.length > 0 ? (
+        <>
+          {nomadHoldings.map((h) => {
+            const latest = h.history?.length ? fromMinor(Number(h.history[h.history.length - 1].valueMinor)) : null;
+            return (
+              <div key={h.id} onClick={() => navigate('/invest')} style={{ cursor: 'pointer' }}>
+                <Row label={h.providerName} value={latest != null ? fmt(latest) : '—'} />
+              </div>
+            );
+          })}
+          {/* Counted in the total once they carry a balance — a holding with none yet shows "—" and adds nothing. */}
+          {onRecordHoldings.map((h) => (
             <div key={h.id} onClick={() => navigate('/invest')} style={{ cursor: 'pointer' }}>
-              <Row label={h.providerName} value={latest != null ? fmt(latest) : '—'} />
+              <Row label={`${h.providerName} · not managed by Nomad`} value={h.balanceMinor != null ? fmt(fromMinor(h.balanceMinor)) : '—'} />
             </div>
-          );
-        })
+          ))}
+        </>
       ) : (
         <div onClick={() => navigate('/invest')} style={{ cursor: 'pointer' }}>
           <Row label="Invested" value={fmt(0)} muted />
@@ -110,20 +116,6 @@ export default function PositionSummaryScreen() {
       <div onClick={() => navigate('/loan')} style={{ cursor: 'pointer' }}>
         <Row label="Owed" value={fmt(position.owed)} />
       </div>
-
-      {externalTotal > 0 && (
-        <>
-          <SectionLabel>External (self-reported)</SectionLabel>
-          {externalHoldings
-            .filter((h) => h.managedBy === 'external')
-            .map((h) => (
-              <Row key={h.id} label={h.providerName} value={h.balanceMinor != null ? fmt(fromMinor(h.balanceMinor)) : '—'} muted />
-            ))}
-          <div style={{ marginTop: 10, fontWeight: 300, fontSize: 11, lineHeight: 1.6, color: 'var(--text-faint)' }}>
-            {ksh(externalTotal)} across products Nomad doesn't manage — not included in the total above.
-          </div>
-        </>
-      )}
     </div>
   );
 }

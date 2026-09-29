@@ -11,7 +11,7 @@ import { useAppState } from '../state/AppStateContext';
 import { useAccounts } from '../hooks/useAccounts';
 import { useExternalHoldings } from '../hooks/useExternalHoldings';
 import { useKyc } from '../hooks/useKyc';
-import { totalInvestedMinor } from '../utils/investmentSeries';
+import { positionInvestedMinor } from '../utils/investmentSeries';
 
 export default function HomeScreen() {
   const navigate = useNavigate();
@@ -27,14 +27,14 @@ export default function HomeScreen() {
   // goal it counts only this user's own contribution, never the pooled
   // balance — that full/shared figure belongs on the Position summary
   // (tap-through) and the Savings screen's own group-goal cards, not here.
-  // Invested is real (nomad-managed holdings' latest snapshot value). Owed
-  // stays mock until loans are wired up.
+  // Invested is real (nomad-managed holdings' latest snapshot value, plus
+  // external holdings on record). Owed stays mock until loans are wired up.
   const myGroupContributions = groupGoals.reduce((sum, g) => {
     const mine = g.members.find((m) => m.username === user?.username)?.contributionMinor ?? '0';
     return sum + fromMinor(mine);
   }, 0);
   const saved = fromMinor(goal?.balanceMinor ?? 0) + fromMinor(liquid?.balanceMinor ?? 0) + myGroupContributions;
-  const invested = fromMinor(totalInvestedMinor(holdings));
+  const invested = fromMinor(positionInvestedMinor(holdings));
   const total = saved + invested - position.owed;
   const pace = goal ? paceStatus({ createdAt: goal.createdAt, targetDate: goal.targetDate, targetMinor: goal.targetMinor, balanceMinor: goal.balanceMinor }) : null;
 

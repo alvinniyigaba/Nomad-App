@@ -25,6 +25,29 @@ export function totalInvestedMinor(holdings) {
   return series.length ? series[series.length - 1].totalMinor : 0;
 }
 
+/**
+ * Current value (minor units) of active external holdings that carry a
+ * balance — products Nomad doesn't manage but has on record (e.g. a
+ * regular-premium plan whose paid premiums are tracked from a statement).
+ * A holding with no balance yet is skipped rather than counted as zero.
+ */
+export function externalInvestedMinor(holdings) {
+  return holdings
+    .filter((h) => h.managedBy === 'external' && h.status === 'active' && h.balanceMinor != null)
+    .reduce((sum, h) => sum + Number(h.balanceMinor), 0);
+}
+
+/**
+ * What counts as "Invested" in a member's position: Nomad-managed holdings
+ * (from their snapshot history) plus external holdings on record. The
+ * portfolio chart on Invest stays Nomad-only via totalInvestedMinor — it's
+ * a performance curve, and an external balance has no history to plot.
+ * Home and the Position summary both use this, so their totals can't drift.
+ */
+export function positionInvestedMinor(holdings) {
+  return totalInvestedMinor(holdings) + externalInvestedMinor(holdings);
+}
+
 /** Change from the last value before this calendar year (or the series' first point) to the latest. */
 export function ytdChangeMinor(series) {
   if (series.length === 0) return 0;
