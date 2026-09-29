@@ -5,7 +5,7 @@ import TerrainPattern from '../components/ds/TerrainPattern';
 import YieldCalculator from '../components/YieldCalculator';
 import { fmt, ksh, fromMinor, pct, formatFullDate } from '../utils/format';
 import { useExternalHoldings } from '../hooks/useExternalHoldings';
-import { buildPortfolioSeries, ytdChangeMinor, chartPolylinePoints } from '../utils/investmentSeries';
+import { buildPortfolioSeries, ytdChangeMinor, chartPolylinePoints, positionInvestedMinor } from '../utils/investmentSeries';
 
 const RANGES = ['1M', '6M', 'YTD', 'ALL'];
 const PRODUCT_TYPE_LABEL = { savings: 'Savings account', fixed_deposit: 'Fixed deposit', investment: 'Investment', other: 'Other product' };
@@ -83,9 +83,9 @@ function HoldingCard({ title, meta, value, footer, dashed, ink, badge, details }
           }}
         >
           {details.map((d) => (
-            <div key={d.label}>
+            <div key={d.label} style={d.wide ? { gridColumn: '1 / -1' } : undefined}>
               <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>{d.label}</div>
-              <div style={{ marginTop: 4, fontWeight: 400, fontSize: 13, color: 'var(--text-on-ink)' }}>{d.value}</div>
+              <div style={{ marginTop: 4, fontWeight: 400, fontSize: 13, lineHeight: 1.5, color: 'var(--text-on-ink)' }}>{d.value}</div>
             </div>
           ))}
         </div>
@@ -102,10 +102,15 @@ export default function InvestScreen() {
   const nomadInvited = holdings.filter((h) => h.managedBy === 'nomad' && h.status === 'invited');
   const external = holdings.filter((h) => h.managedBy === 'external');
 
+  // The chart and year-to-date figures are a performance curve, so they
+  // only use holdings with snapshot history (Nomad-managed). The headline is
+  // everything invested — the same figure Home counts — so an external
+  // holding like a premium plan doesn't leave this page reading zero.
   const series = buildPortfolioSeries(holdings);
-  const totalMinor = series.length ? series[series.length - 1].totalMinor : 0;
+  const seriesMinor = series.length ? series[series.length - 1].totalMinor : 0;
+  const totalMinor = positionInvestedMinor(holdings);
   const ytdChange = ytdChangeMinor(series);
-  const ytdPct = totalMinor - ytdChange !== 0 ? (ytdChange / (totalMinor - ytdChange)) * 100 : 0;
+  const ytdPct = seriesMinor - ytdChange !== 0 ? (ytdChange / (seriesMinor - ytdChange)) * 100 : 0;
   const points = chartPolylinePoints(series);
 
   function latestValue(h) {
@@ -212,15 +217,31 @@ export default function InvestScreen() {
             External
           </div>
           <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {external.map((h) => (
-              <HoldingCard
-                key={h.id}
-                title={h.providerName}
-                meta={`${PRODUCT_TYPE_LABEL[h.productType]}${h.interestRateBps ? ` · ${pct(h.interestRateBps / 100)} p.a.` : ''}${h.termMonths ? ` · ${h.termMonths}mo term` : ''}`}
-                footer="External · not managed by Nomad"
-                value={h.balanceMinor != null ? fromMinor(h.balanceMinor) : null}
-              />
-            ))}
+            {external.map((h) => {
+              // Same fields as a Nomad card, but read from the holding itself —
+              // an external holding has no snapshot history to derive them from.
+              const details = [
+                { label: 'Start date', value: h.startDate ? formatFullDate(h.startDate) : '—' },
+                { label: 'Investment currency', value: h.investmentCurrency || '—' },
+                { label: 'Interest rate', value: h.interestRateBps ? `${pct(h.interestRateBps / 100)} p.a.` : '—' },
+                { label: 'Managed by', value: h.providerName },
+                { label: 'Amount invested (UGX)', value: h.investedMinor != null ? ksh(fromMinor(h.investedMinor)) : '—' },
+              ];
+              if (h.termMonths) details.push({ label: 'Term', value: `${h.termMonths} months` });
+              if (h.maturityDate) details.push({ label: 'Maturity', value: formatFullDate(h.maturityDate) });
+              if (h.notes) details.push({ label: 'Notes', value: h.notes, wide: true });
+              return (
+                <HoldingCard
+                  key={h.id}
+                  title={h.providerName}
+                  meta={`${PRODUCT_TYPE_LABEL[h.productType]}${h.interestRateBps ? ` · ${pct(h.interestRateBps / 100)} p.a.` : ''}${h.termMonths ? ` · ${h.termMonths}mo term` : ''}`}
+                  value={h.balanceMinor != null ? fromMinor(h.balanceMinor) : null}
+                  footer={h.balanceMinor == null ? 'No value entered yet' : null}
+                  details={details}
+                  ink
+                />
+              );
+            })}
           </div>
         </>
       )}

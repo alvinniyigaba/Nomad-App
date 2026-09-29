@@ -149,6 +149,14 @@ ALTER TABLE external_holdings ADD COLUMN IF NOT EXISTS status text NOT NULL DEFA
 -- UGX core-currency amounts everywhere else. Descriptive metadata, not a
 -- derived value, so it's stored directly like notes/interest_rate_bps.
 ALTER TABLE external_holdings ADD COLUMN IF NOT EXISTS investment_currency text;
+-- When the position was opened and how much has been put into it (the
+-- sheet's "Investment Start Date" and "Net Invested"). An 'external'
+-- holding has no snapshot history to derive these from, so they're stored
+-- as descriptive fields; a 'nomad' holding's card still reads them from its
+-- inception snapshot. invested_minor can grow (a regular-premium plan), so
+-- it's refreshed from the sheet rather than fixed at creation.
+ALTER TABLE external_holdings ADD COLUMN IF NOT EXISTS start_date date;
+ALTER TABLE external_holdings ADD COLUMN IF NOT EXISTS invested_minor bigint;
 
 -- Append-only value history for 'nomad'-managed holdings — powers the real
 -- performance chart. One row per (holding, date); re-posting the same date

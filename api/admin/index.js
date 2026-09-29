@@ -43,7 +43,8 @@
 // Est. Worth — snapshot inserts are ON CONFLICT (holding_id, date) DO
 // UPDATE, so re-running the same day is safe. External (non-Nomad) rows
 // also get balance_minor set from Est. Worth, since that's the field the
-// app reads for them. Runs daily via Vercel Cron.
+// app reads for them. Every row's start_date and invested_minor are
+// refreshed from Start Date / Net Invested. Runs daily via Vercel Cron.
 //
 // resource=accounts (GET): read-only, a user's own accounts and any group
 // accounts they belong to, with derived balances (and member lists for
@@ -141,6 +142,15 @@ async function handleMigrate(req, res) {
   return res.status(200).json({ ok: true, message: 'Schema applied.' });
 }
 
+/** Shared by POST/PATCH: both fields are optional, but must be well-formed when given. */
+function validateStartAndInvested(startDate, investedMinor) {
+  if (startDate != null && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return 'startDate must be YYYY-MM-DD';
+  if (investedMinor != null && !(Number.isFinite(Number(investedMinor)) && Number(investedMinor) >= 0)) {
+    return 'investedMinor must be a non-negative number';
+  }
+  return null;
+}
+
 async function handleExternalHoldings(req, res) {
   if (req.method === 'GET') {
     const { username } = req.query;
@@ -162,7 +172,7 @@ async function handleExternalHoldings(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { username, providerName, productType, balanceMinor, interestRateBps, termMonths, maturityDate, notes, managedBy, status, investmentCurrency } = req.body ?? {};
+    const { username, providerName, productType, balanceMinor, interestRateBps, termMonths, maturityDate, notes, managedBy, status, investmentCurrency, startDate, investedMinor } = req.body ?? {};
     if (typeof username !== 'string' || typeof providerName !== 'string' || !providerName.trim()) {
       return res.status(400).json({ error: 'username and providerName are required' });
     }
@@ -175,20 +185,24 @@ async function handleExternalHoldings(req, res) {
     if (status && !['active', 'invited'].includes(status)) {
       return res.status(400).json({ error: 'status must be active or invited' });
     }
+    const invalid = validateStartAndInvested(startDate, investedMinor);
+    if (invalid) return res.status(400).json({ error: invalid });
     const userId = await resolveUserId(username);
     if (!userId) return res.status(404).json({ error: 'No such user' });
 
     const { rows } = await query(
-      `INSERT INTO external_holdings (user_id, provider_name, product_type, balance_minor, interest_rate_bps, term_months, maturity_date, notes, managed_by, status, investment_currency)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9,'external'),COALESCE($10,'active'),$11) RETURNING *`,
-      [userId, providerName.trim(), productType, balanceMinor ?? null, interestRateBps ?? null, termMonths ?? null, maturityDate ?? null, notes ?? null, managedBy ?? null, status ?? null, investmentCurrency ?? null],
+      `INSERT INTO external_holdings (user_id, provider_name, product_type, balance_minor, interest_rate_bps, term_months, maturity_date, notes, managed_by, status, investment_currency, start_date, invested_minor)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9,'external'),COALESCE($10,'active'),$11,$12,$13) RETURNING *`,
+      [userId, providerName.trim(), productType, balanceMinor ?? null, interestRateBps ?? null, termMonths ?? null, maturityDate ?? null, notes ?? null, managedBy ?? null, status ?? null, investmentCurrency ?? null, startDate ?? null, investedMinor ?? null],
     );
     return res.status(200).json({ ok: true, holding: rows[0] });
   }
 
   if (req.method === 'PATCH') {
-    const { id, providerName, productType, balanceMinor, interestRateBps, termMonths, maturityDate, notes, managedBy, status, investmentCurrency, snapshotDate, snapshotValueMinor } = req.body ?? {};
+    const { id, providerName, productType, balanceMinor, interestRateBps, termMonths, maturityDate, notes, managedBy, status, investmentCurrency, snapshotDate, snapshotValueMinor, startDate, investedMinor } = req.body ?? {};
     if (typeof id !== 'string') return res.status(400).json({ error: 'id is required' });
+    const invalid = validateStartAndInvested(startDate, investedMinor);
+    if (invalid) return res.status(400).json({ error: invalid });
 
     if (snapshotDate != null || snapshotValueMinor != null) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate ?? '')) return res.status(400).json({ error: 'snapshotDate must be YYYY-MM-DD' });
@@ -216,9 +230,11 @@ async function handleExternalHoldings(req, res) {
          managed_by = COALESCE($9, managed_by),
          status = COALESCE($10, status),
          investment_currency = COALESCE($11, investment_currency),
+         start_date = COALESCE($12, start_date),
+         invested_minor = COALESCE($13, invested_minor),
          updated_at = now()
        WHERE id = $1 RETURNING *`,
-      [id, providerName ?? null, productType ?? null, balanceMinor ?? null, interestRateBps ?? null, termMonths ?? null, maturityDate ?? null, notes ?? null, managedBy ?? null, status ?? null, investmentCurrency ?? null],
+      [id, providerName ?? null, productType ?? null, balanceMinor ?? null, interestRateBps ?? null, termMonths ?? null, maturityDate ?? null, notes ?? null, managedBy ?? null, status ?? null, investmentCurrency ?? null, startDate ?? null, investedMinor ?? null],
     );
     if (!rows[0]) return res.status(404).json({ error: 'No such holding' });
     return res.status(200).json({ ok: true, holding: rows[0] });
@@ -544,14 +560,15 @@ async function syncInvestmentsForUser(username, csvUrl, results) {
     if (existing[0]) {
       holdingId = existing[0].id;
       await query(
-        `UPDATE external_holdings SET interest_rate_bps = $2, notes = COALESCE($3, notes), managed_by = $4, investment_currency = COALESCE($5, investment_currency), updated_at = now() WHERE id = $1`,
-        [holdingId, interestRateBps, notes, managedBy, currency],
+        `UPDATE external_holdings SET interest_rate_bps = $2, notes = COALESCE($3, notes), managed_by = $4, investment_currency = COALESCE($5, investment_currency),
+           start_date = $6, invested_minor = COALESCE($7, invested_minor), updated_at = now() WHERE id = $1`,
+        [holdingId, interestRateBps, notes, managedBy, currency, startDate.trim(), netInvested != null ? Math.round(netInvested * 100) : null],
       );
     } else {
       const { rows: created } = await query(
-        `INSERT INTO external_holdings (user_id, provider_name, product_type, managed_by, status, interest_rate_bps, notes, investment_currency)
-         VALUES ($1,$2,'investment',$3,'active',$4,$5,$6) RETURNING id`,
-        [userId, providerName, managedBy, interestRateBps, notes, currency],
+        `INSERT INTO external_holdings (user_id, provider_name, product_type, managed_by, status, interest_rate_bps, notes, investment_currency, start_date, invested_minor)
+         VALUES ($1,$2,'investment',$3,'active',$4,$5,$6,$7,$8) RETURNING id`,
+        [userId, providerName, managedBy, interestRateBps, notes, currency, startDate.trim(), netInvested != null ? Math.round(netInvested * 100) : null],
       );
       holdingId = created[0].id;
       if (netInvested != null) {

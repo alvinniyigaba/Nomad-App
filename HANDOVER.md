@@ -120,6 +120,15 @@ Worth is rejected (the row is skipped and reported in `errors`), and a
 blank TCD leaves the holding's notes alone — so a hand-written note on an
 external holding survives re-syncs.
 
+External holdings also carry `start_date` and `invested_minor` (the
+sheet's Start Date and Net Invested, refreshed on every sync; settable via
+the admin POST/PATCH as `startDate`/`investedMinor`). The Invest screen
+renders external holdings with the same card and expandable details as
+Nomad-managed ones — a Nomad card derives Start date / Amount invested
+from its inception snapshot, an external card reads these two fields. The
+Invest headline is everything invested (Nomad + external, same figure as
+Home); the chart and year-to-date line stay Nomad-only.
+
 **Financial modeling note:** "Net Invested"/"Current Holding" and "Est.
 Worth" deliberately exclude bank/processing fees — those are tracked
 separately in the "TCD" (Total Cost to Date) column and surfaced in the
@@ -231,6 +240,12 @@ npm run dev
 - Dev server serves both the Vite frontend and the `/api/*` routes (see
   `dev/apiPlugin.mjs`) on `http://localhost:5173`.
 - `npm run build` / `npm run lint` (oxlint) before pushing anything.
+- **PWA updates:** `src/main.jsx` registers the service worker itself
+  (`virtual:pwa-register`, `registerType: 'autoUpdate'`), so an open or
+  home-screen app reloads once a new deploy's service worker activates, and
+  checks for one hourly. Before this, the app kept serving its cached old
+  build until fully closed and reopened — "I deployed but nothing changed"
+  on a phone was usually that.
 - **Playwright gotcha**: the username field on the login screen has no
   literal `type="text"` HTML attribute (the browser defaults it, but the
   attribute isn't in the DOM) — `input[type="text"]` as a CSS selector
