@@ -31,7 +31,7 @@ export default function PinScreen() {
   const [status, setStatus] = useState('idle'); // 'idle' | 'checking' | 'wrong' | 'locked'
   const [attemptsLeft, setAttemptsLeft] = useState(null);
   const navigate = useNavigate();
-  const { user, verifyPin } = useAppState();
+  const { user, verifyPin, signOut } = useAppState();
   const resetTimer = useRef(null);
 
   async function submitPin(candidate) {
@@ -157,6 +157,17 @@ export default function PinScreen() {
               </div>
             );
           })}
+        </div>
+
+        {/* A remembered device only ever asks for the PIN — without this there's no way to switch accounts on it. */}
+        <div
+          onClick={async () => {
+            await signOut();
+            navigate('/login', { replace: true });
+          }}
+          style={{ marginTop: 26, textAlign: 'center', fontWeight: 300, fontSize: 12, color: 'var(--taupe-on-ink)', cursor: 'pointer' }}
+        >
+          Not {capitalize(user?.username)}? <span style={{ fontWeight: 500, letterSpacing: '0.12em', color: 'var(--accent-gold)' }}>SIGN OUT</span>
         </div>
 
         <div style={{ flex: 1, minHeight: 20 }} />

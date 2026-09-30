@@ -73,6 +73,12 @@ export function AppStateProvider({ children }) {
     setAuthStatus('needsPin');
   }, []);
 
+  const signOut = useCallback(async () => {
+    await api('/api/auth/lock', { signOut: true });
+    setUser(null);
+    setAuthStatus('anon');
+  }, []);
+
   const value = useMemo(
     () => ({
       authStatus,
@@ -80,6 +86,7 @@ export function AppStateProvider({ children }) {
       login,
       verifyPin,
       lockApp,
+      signOut,
 
       loanAmount,
       setLoanAmount,
@@ -97,7 +104,7 @@ export function AppStateProvider({ children }) {
       push,
       togglePush: () => setPush((v) => !v),
     }),
-    [authStatus, user, login, verifyPin, lockApp, loanAmount, wd, dest, emailStatements, faceId, push],
+    [authStatus, user, login, verifyPin, lockApp, signOut, loanAmount, wd, dest, emailStatements, faceId, push],
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

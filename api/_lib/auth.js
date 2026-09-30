@@ -94,6 +94,11 @@ export async function lockSession(session) {
   await query('UPDATE sessions SET pin_verified_at = NULL WHERE id = $1', [session.id]);
 }
 
+/** Ends the session for good — the token stops working even if the cookie survives somewhere. */
+export async function revokeSession(session) {
+  await query('UPDATE sessions SET revoked_at = now() WHERE id = $1', [session.id]);
+}
+
 /** For endpoints that move or reveal money: session must exist AND have cleared the PIN. */
 export async function requireFullSession(req, res) {
   const session = await getSession(req);

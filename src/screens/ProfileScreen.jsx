@@ -61,7 +61,7 @@ const Arrow = <div style={{ fontWeight: 300, fontSize: 15, color: 'var(--text-mu
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
-  const { user, emailStatements, toggleEmailStatements, faceId, toggleFaceId, push, togglePush, lockApp } = useAppState();
+  const { user, emailStatements, toggleEmailStatements, faceId, toggleFaceId, push, togglePush, lockApp, signOut } = useAppState();
   const { kyc } = useKyc();
   const [showDetails, setShowDetails] = useState(false);
 
@@ -224,6 +224,15 @@ export default function ProfileScreen() {
         >
           Lock the app
         </Button>
+      </div>
+      <div
+        onClick={async () => {
+          await signOut();
+          navigate('/login', { replace: true });
+        }}
+        style={{ marginTop: 14, textAlign: 'center', fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--accent-clay)', cursor: 'pointer' }}
+      >
+        SIGN OUT
       </div>
       <div style={{ marginTop: 16, textAlign: 'center', fontWeight: 300, fontSize: 11, lineHeight: 1.6, color: 'var(--text-faint)' }}>
         Building a Better Africa · {appVersion}
