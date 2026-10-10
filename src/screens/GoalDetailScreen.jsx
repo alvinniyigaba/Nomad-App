@@ -145,7 +145,7 @@ export default function GoalDetailScreen() {
         )}
         {pledged > 0 && (
           <div
-            onClick={() => navigate('/loan')}
+            onClick={() => navigate('/borrow')}
             style={{
               background: 'var(--surface-card)',
               border: '1px solid var(--border-default)',

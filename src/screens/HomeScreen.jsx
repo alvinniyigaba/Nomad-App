@@ -4,13 +4,14 @@ import RouteDivider from '../components/ds/RouteDivider';
 import TerrainPattern from '../components/ds/TerrainPattern';
 import Button from '../components/ds/Button';
 import { Loading, ErrorState } from '../components/ScreenState';
-import { position, loan } from '../data/mockData';
+import { position } from '../data/mockData';
 import { fmt, ksh, fromMinor, formatMonthYear, capitalize, greeting } from '../utils/format';
 import { paceStatus } from '../utils/pacing';
 import { useAppState } from '../state/AppStateContext';
 import { useAccounts } from '../hooks/useAccounts';
 import { useExternalHoldings } from '../hooks/useExternalHoldings';
 import { useKyc } from '../hooks/useKyc';
+import { useLoans, netLoansMinor } from '../hooks/useLoans';
 import { positionInvestedMinor } from '../utils/investmentSeries';
 
 export default function HomeScreen() {
@@ -19,6 +20,7 @@ export default function HomeScreen() {
   const { status, goal, liquid, groupGoals, error, refetch } = useAccounts();
   const { holdings } = useExternalHoldings();
   const { kyc } = useKyc();
+  const { totals: loanTotals } = useLoans();
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
@@ -28,14 +30,16 @@ export default function HomeScreen() {
   // balance — that full/shared figure belongs on the Position summary
   // (tap-through) and the Savings screen's own group-goal cards, not here.
   // Invested is real (nomad-managed holdings' latest snapshot value, plus
-  // external holdings on record). Owed stays mock until loans are wired up.
+  // external holdings on record). Loans is what others still owe this user
+  // minus what they owe, from private loans on record (Borrow tab).
   const myGroupContributions = groupGoals.reduce((sum, g) => {
     const mine = g.members.find((m) => m.username === user?.username)?.contributionMinor ?? '0';
     return sum + fromMinor(mine);
   }, 0);
   const saved = fromMinor(goal?.balanceMinor ?? 0) + fromMinor(liquid?.balanceMinor ?? 0) + myGroupContributions;
   const invested = fromMinor(positionInvestedMinor(holdings));
-  const total = saved + invested - position.owed;
+  const loans = fromMinor(netLoansMinor(loanTotals));
+  const total = saved + invested + loans;
   const pace = goal ? paceStatus({ createdAt: goal.createdAt, targetDate: goal.targetDate, targetMinor: goal.targetMinor, balanceMinor: goal.balanceMinor }) : null;
 
   return (
@@ -99,13 +103,13 @@ export default function HomeScreen() {
               <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>Saved</div>
               <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-on-ink)' }}>{fmt(saved)}</div>
             </div>
-            <div onClick={(e) => { e.stopPropagation(); navigate('/loan'); }} style={{ flex: 1, cursor: 'pointer' }}>
-              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>Owed</div>
-              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--accent-clay)' }}>{fmt(position.owed)}</div>
-            </div>
             <div onClick={(e) => { e.stopPropagation(); navigate('/invest'); }} style={{ flex: 1, cursor: 'pointer' }}>
               <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>Invested</div>
               <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-on-ink)' }}>{fmt(invested)}</div>
+            </div>
+            <div onClick={(e) => { e.stopPropagation(); navigate('/borrow'); }} style={{ flex: 1, cursor: 'pointer' }}>
+              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>Loans</div>
+              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: loans < 0 ? 'var(--accent-clay)' : 'var(--text-on-ink)' }}>{fmt(loans)}</div>
             </div>
           </div>
         </div>
@@ -129,38 +133,6 @@ export default function HomeScreen() {
       </div>
 
       <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {loan.nextDue && (
-          <div
-            onClick={() => navigate('/loan')}
-            style={{
-              background: 'var(--surface-ink)',
-              border: '1px solid rgba(201,138,43,0.28)',
-              borderRadius: 8,
-              padding: '18px 20px',
-              boxShadow: 'var(--shadow-md)',
-              cursor: 'pointer',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 11, height: 11, border: '1.4px solid var(--accent-gold)', borderRadius: 6 }} />
-              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>
-                Due in 6 days
-              </div>
-            </div>
-            <div style={{ marginTop: 12, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontWeight: 400, fontSize: 15, color: 'var(--text-on-ink)' }}>Loan repayment</div>
-                <div style={{ marginTop: 6, fontWeight: 300, fontSize: 12, color: 'var(--text-on-ink-body)' }}>
-                  Auto-debit from {loan.nextDue.rail} · {loan.nextDue.date}
-                </div>
-              </div>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 21, letterSpacing: '0.03em', color: 'var(--accent-gold)' }}>
-                {fmt(loan.nextDue.amount)}
-              </div>
-            </div>
-          </div>
-        )}
-
         {goal && (
           <div
             onClick={() => navigate('/save/goal')}

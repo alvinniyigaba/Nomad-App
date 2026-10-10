@@ -1,5 +1,6 @@
 import { requireFullSession } from './_lib/auth.js';
 import { query } from './_lib/db.js';
+import { getLoansForUser } from './_lib/loans.js';
 
 function serialize(row, history) {
   return {
@@ -23,12 +24,24 @@ function serialize(row, history) {
   };
 }
 
-/** Read-only for the signed-in user's own rows. Entries are written by an admin — see api/admin/index.js (resource=external-holdings). */
+/**
+ * Read-only views of the signed-in user's own off-ledger positions, written
+ * by an admin (see api/admin/index.js):
+ * - default: savings/investment holdings (resource=external-holdings there)
+ * - ?resource=loans: private loans they've made or taken (resource=loans)
+ * Both live in this one function because Vercel's Hobby plan caps
+ * Serverless Functions at 12. They share the same access rule — the
+ * user's own rows, after the PIN — and nothing here moves money.
+ */
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const session = await requireFullSession(req, res);
   if (!session) return;
+
+  if (req.query?.resource === 'loans') {
+    return res.status(200).json(await getLoansForUser(session.user_id));
+  }
 
   const { rows } = await query(
     'SELECT * FROM external_holdings WHERE user_id = $1 ORDER BY created_at DESC',

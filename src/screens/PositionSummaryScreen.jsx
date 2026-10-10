@@ -7,6 +7,7 @@ import { useAppState } from '../state/AppStateContext';
 import { useAccounts } from '../hooks/useAccounts';
 import { useExternalHoldings } from '../hooks/useExternalHoldings';
 import { positionInvestedMinor } from '../utils/investmentSeries';
+import { useLoans, netLoansMinor } from '../hooks/useLoans';
 
 function Row({ label, value, muted, indent }) {
   return (
@@ -30,6 +31,7 @@ export default function PositionSummaryScreen() {
   const { user } = useAppState();
   const { status, goal, liquid, groupGoals, error, refetch } = useAccounts();
   const { holdings: externalHoldings } = useExternalHoldings();
+  const { loans, totals: loanTotals } = useLoans();
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
@@ -40,7 +42,8 @@ export default function PositionSummaryScreen() {
   const onRecordHoldings = externalHoldings.filter((h) => h.managedBy === 'external' && h.status === 'active');
   const invested = fromMinor(positionInvestedMinor(externalHoldings));
   // Same fields Home's collapsed card sums, plus group goals — keeps the two screens' totals from ever silently diverging.
-  const total = individualSaved + groupTotal + invested - position.owed;
+  const total = individualSaved + groupTotal + invested + fromMinor(netLoansMinor(loanTotals));
+  const openLoans = loans.filter((l) => (l.status === 'active' || l.status === 'overdue') && Number(l.outstandingMinor) > 0);
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
@@ -112,10 +115,21 @@ export default function PositionSummaryScreen() {
         </div>
       )}
 
-      <SectionLabel>Other</SectionLabel>
-      <div onClick={() => navigate('/loan')} style={{ cursor: 'pointer' }}>
-        <Row label="Owed" value={fmt(position.owed)} />
-      </div>
+      <SectionLabel>Loans</SectionLabel>
+      {openLoans.length > 0 ? (
+        openLoans.map((l) => (
+          <div key={l.id} onClick={() => navigate(`/loan?id=${l.id}`)} style={{ cursor: 'pointer' }}>
+            <Row
+              label={l.direction === 'lent' ? `Owed by ${l.counterparty}` : `You owe ${l.counterparty}`}
+              value={l.direction === 'lent' ? fmt(fromMinor(l.outstandingMinor)) : `−${fmt(fromMinor(l.outstandingMinor))}`}
+            />
+          </div>
+        ))
+      ) : (
+        <div onClick={() => navigate('/borrow')} style={{ cursor: 'pointer' }}>
+          <Row label="Loans" value={fmt(0)} muted />
+        </div>
+      )}
     </div>
   );
 }

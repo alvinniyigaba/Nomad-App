@@ -170,3 +170,42 @@ CREATE TABLE IF NOT EXISTS investment_snapshots (
   UNIQUE (holding_id, snapshot_date)
 );
 CREATE INDEX IF NOT EXISTS investment_snapshots_holding_id_idx ON investment_snapshots(holding_id, snapshot_date);
+
+-- Private loans a member has made to, or taken from, people outside Nomad
+-- (e.g. a member lent a friend money). Records only — no money moves
+-- through Nomad for these, so they never touch ledger_entries. Admin-
+-- entered from the member's sheet ("Loans" tab; loan_ref is its Loan ID).
+-- counterparty is a first name or label, not a full identity: these people
+-- aren't Nomad members and haven't agreed to Nomad holding their details.
+-- What's still owed is derived (principal minus repayments), never stored.
+CREATE TABLE IF NOT EXISTS loans (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  loan_ref text NOT NULL,
+  direction text NOT NULL CHECK (direction IN ('lent', 'borrowed')),
+  counterparty text NOT NULL,
+  principal_minor bigint NOT NULL CHECK (principal_minor > 0),
+  terms text,
+  start_date date,
+  due_date date,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'repaid', 'overdue', 'written_off')),
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, loan_ref)
+);
+CREATE INDEX IF NOT EXISTS loans_user_id_idx ON loans(user_id);
+
+-- Append-only, like the ledger: a mistaken repayment is corrected by posting
+-- a negative one, never by editing or deleting the original. idempotency_key
+-- (optional) makes re-running an import safe, as on ledger_entries.
+CREATE TABLE IF NOT EXISTS loan_repayments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  loan_id uuid NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+  amount_minor bigint NOT NULL CHECK (amount_minor <> 0),
+  paid_on date NOT NULL,
+  memo text,
+  idempotency_key text UNIQUE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS loan_repayments_loan_id_idx ON loan_repayments(loan_id, paid_on);

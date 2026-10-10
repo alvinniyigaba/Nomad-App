@@ -11,42 +11,12 @@ export const appVersion = 'v2.4';
 
 export const rates = {
   savings: 9.2, // % p.a.
-  loan: 13.5, // % p.a.
 };
 
-// Saved is real (the ledger, via /api/accounts) — owed and invested stay
-// mock until loans and investments are wired up. See HomeScreen.
+// Saved, invested and loans are real (see HomeScreen); only the
+// month-on-month change is still mock.
 export const position = {
   monthChange: 30120,
-  owed: 0,
-  invested: 788500,
-};
-
-// No actual loan outstanding — fully settled, no collateral pledged.
-export const loan = {
-  outstanding: 0,
-  principal: 288000,
-  paidInstallments: 12,
-  totalInstallments: 12,
-  nextDue: null,
-  pledged: 0,
-  pledgeUnlocks: null,
-  schedule: [
-    { label: '5 August · paid', amount: 24000, kind: 'paid' },
-    { label: '5 September · paid', amount: 24000, kind: 'paid' },
-    { label: '5 October · paid', amount: 24000, kind: 'paid' },
-    { label: '5 November · paid', amount: 24000, kind: 'paid' },
-    { label: '5 December · paid (final)', amount: 24000, kind: 'paid' },
-  ],
-};
-
-export const borrow = {
-  availableLimit: 368000, // 80% of unpledged savings
-  unpledgedSavings: 460000,
-  ltv: 0.8,
-  termMonths: 12,
-  arrangementFeePct: 0.01,
-  presets: [100000, 200000, 300000],
 };
 
 export const investments = {

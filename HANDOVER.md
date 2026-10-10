@@ -51,6 +51,8 @@ this session since production traffic is confirmed to be on
 | `user_settings` | notification/language toggles |
 | `external_holdings` | savings/investment products — `managed_by` is `'nomad'` (Nomad actually manages it, value comes from snapshots) or `'external'` (on record but not run by Nomad; `balance_minor` is a plain number — set by an admin, or by `sync-investments` from the sheet's Est. Worth — and it **counts toward the member's Invested/Total position**) |
 | `investment_snapshots` | dated value history per `nomad`-managed holding — one row per (holding, date), re-posting the same date corrects it rather than duplicating |
+| `loans` | private loans a member made to (`direction='lent'`) or took from (`'borrowed'`) someone **outside** Nomad — records only, no money moves through Nomad. `loan_ref` is the Loan ID from the member's sheet ("Loans" tab), unique per member. `counterparty` is a first name only (they aren't Nomad members). Outstanding is derived, never stored |
+| `loan_repayments` | append-only repayments per loan; a mistake is corrected with a negative amount. Optional `idempotency_key` makes imports safe to re-run |
 
 Migrations are idempotent — `db/schema.sql` uses `CREATE TABLE IF NOT
 EXISTS` + `ALTER TABLE ADD COLUMN IF NOT EXISTS`, applied via
@@ -64,7 +66,7 @@ EXISTS` + `ALTER TABLE ADD COLUMN IF NOT EXISTS`, applied via
 - `deposit.js` / `withdraw.js` — post ledger entries (any group member can deposit; only admins can withdraw)
 - `groups.js` — list other pilot users (for the member picker) + create a group goal
 - `kyc.js` — KYC status
-- `external-holdings.js` — user-facing read of a user's holdings (the admin write path is separate, see below)
+- `external-holdings.js` — user-facing read of a user's holdings (the admin write path is separate, see below). `?resource=loans` on the same function returns their private loans with repayments and totals (`owedToYouMinor`, `youOweMinor`, open loans only) — shared function because of the 12-function Hobby cap; both are read-only and user-scoped
 
 **Admin-only** (`api/admin/index.js`, gated by `ADMIN_TOKEN` query param or `CRON_SECRET` bearer token), dispatched by `?resource=`:
 - `migrate` (GET) — applies `db/schema.sql`
@@ -73,6 +75,8 @@ EXISTS` + `ALTER TABLE ADD COLUMN IF NOT EXISTS`, applied via
 - `sync-sheet` (GET) — reads a published-CSV shared savings ledger sheet, posts new rows as ledger entries. Runs daily via Vercel Cron.
 - `post-entries` (POST) — same validation as sync-sheet but takes pre-parsed rows directly (used when Claude reads a *private* sheet via the Drive connector and submits what it finds, avoiding "publish to web")
 - `sync-investments` (GET) — **new this session**, see below. Runs daily via Vercel Cron.
+- `loans` (GET `?username` / POST / PATCH) — a member's private loans; POST takes `{ username, loanRef, direction, counterparty, principalMinor, terms?, startDate?, dueDate?, status?, notes? }` and returns 409 if that `loanRef` already exists for them
+- `loan-repayments` (POST) — `{ loanId, amountMinor, paidOn, memo?, idempotencyKey? }`, append-only
 - `reset-credentials` (POST) — `{ username, password?, pin? }`: sets a new password and/or PIN (stored only as bcrypt hashes, never echoed) and revokes all of that member's sessions. Use `bash scripts/reset-logins.sh <username…|all>` from your own machine: it generates the new logins locally and prints them once, so they never go through GitHub.
 
 ## Google Sheets integration
@@ -166,6 +170,17 @@ no manual step needed after that.
 - **Seeded the real Mansa X investment** (Niyigaba Alvin's, 9,450,000 UGX
   at 18% from 27 Aug 2026) — see "Known gaps" below on whether this
   actually landed in production.
+
+## Loans (Borrow tab)
+
+The Borrow tab ("Borrow & Lend") shows money a member lent to or borrowed
+from people outside Nomad, from the `loans`/`loan_repayments` tables. The
+old mock "borrow against your savings" screen and its mock data are gone;
+a member with no loans sees zeros. Loans count toward Total position:
+Home and the Position summary both add owed-to-you and subtract you-owe
+via `netLoansMinor` (`src/hooks/useLoans.js`), for active and overdue
+loans only — repaid and written-off loans drop out. Loan detail is
+`/loan?id=<loan id>`.
 
 ## Known gaps / unfinished business
 

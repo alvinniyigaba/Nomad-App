@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
-import { borrow } from '../data/mockData';
 
 const AppStateContext = createContext(null);
 
@@ -18,7 +17,6 @@ export function AppStateProvider({ children }) {
   const [authStatus, setAuthStatus] = useState('loading');
   const [user, setUser] = useState(null);
 
-  const [loanAmount, setLoanAmount] = useState(300000);
   const [wd, setWd] = useState(45000);
   const [dest, setDest] = useState('mpesa');
   const [emailStatements, setEmailStatements] = useState(true);
@@ -88,10 +86,6 @@ export function AppStateProvider({ children }) {
       lockApp,
       signOut,
 
-      loanAmount,
-      setLoanAmount,
-      borrowLimit: borrow.availableLimit,
-
       wd,
       setWd,
       dest,
@@ -104,7 +98,7 @@ export function AppStateProvider({ children }) {
       push,
       togglePush: () => setPush((v) => !v),
     }),
-    [authStatus, user, login, verifyPin, lockApp, signOut, loanAmount, wd, dest, emailStatements, faceId, push],
+    [authStatus, user, login, verifyPin, lockApp, signOut, wd, dest, emailStatements, faceId, push],
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

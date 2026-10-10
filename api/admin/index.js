@@ -81,11 +81,23 @@
 // any device signed in with the old login is signed out. The caller
 // generates the new values and hands them to the member; they're only
 // ever stored as bcrypt hashes and never echoed back.
+//
+// resource=loans (GET ?username / POST / PATCH): a member's private loans —
+// money they lent to, or borrowed from, someone outside Nomad — entered
+// from the "Loans" tab of their sheet. loanRef is that tab's Loan ID and
+// is unique per member, so a repeated POST returns 409 instead of
+// duplicating. Records only: no money moves through Nomad for these.
+//
+// resource=loan-repayments (POST): appends a repayment to a loan
+// ({ loanId, amountMinor, paidOn, memo?, idempotencyKey? }). Append-only;
+// a mistake is corrected with a negative amount. Outstanding is always
+// derived as principal minus repayments.
 import { readFileSync } from 'fs';
 import bcrypt from 'bcryptjs';
 import { db, query, withTransaction } from '../_lib/db.js';
 import { postEntry } from '../_lib/ledger.js';
 import { getAccountMembers } from '../_lib/access.js';
+import { getLoansForUser } from '../_lib/loans.js';
 
 async function resolveUserId(username) {
   if (!username) return null;
@@ -425,6 +437,102 @@ async function handleResetCredentials(req, res) {
   return res.status(200).json({ ok: true, username: username.trim().toLowerCase(), passwordReset: password != null, pinReset: pin != null, sessionsRevoked });
 }
 
+const LOAN_DIRECTIONS = ['lent', 'borrowed'];
+const LOAN_STATUSES = ['active', 'repaid', 'overdue', 'written_off'];
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Shared by POST/PATCH: every field is optional here, but must be well-formed when given. */
+function validateLoanFields({ direction, counterparty, principalMinor, startDate, dueDate, status }) {
+  if (direction != null && !LOAN_DIRECTIONS.includes(direction)) return 'direction must be lent or borrowed';
+  if (counterparty != null && (typeof counterparty !== 'string' || !counterparty.trim())) return 'counterparty must be a non-empty name';
+  if (principalMinor != null && !(Number.isSafeInteger(Number(principalMinor)) && Number(principalMinor) > 0)) {
+    return 'principalMinor must be a positive whole number';
+  }
+  if (startDate != null && !DATE_PATTERN.test(startDate)) return 'startDate must be YYYY-MM-DD';
+  if (dueDate != null && !DATE_PATTERN.test(dueDate)) return 'dueDate must be YYYY-MM-DD';
+  if (status != null && !LOAN_STATUSES.includes(status)) return 'status must be active, repaid, overdue, or written_off';
+  return null;
+}
+
+async function handleLoans(req, res) {
+  if (req.method === 'GET') {
+    const userId = await resolveUserId(req.query.username);
+    if (!userId) return res.status(404).json({ error: 'No such user' });
+    return res.status(200).json(await getLoansForUser(userId));
+  }
+
+  if (req.method === 'POST') {
+    const { username, loanRef, direction, counterparty, principalMinor, terms, startDate, dueDate, status, notes } = req.body ?? {};
+    if (typeof loanRef !== 'string' || !loanRef.trim()) return res.status(400).json({ error: 'loanRef is required (the Loan ID from the sheet)' });
+    if (direction == null || counterparty == null || principalMinor == null) {
+      return res.status(400).json({ error: 'direction, counterparty and principalMinor are required' });
+    }
+    const invalid = validateLoanFields({ direction, counterparty, principalMinor, startDate, dueDate, status });
+    if (invalid) return res.status(400).json({ error: invalid });
+    const userId = await resolveUserId(username);
+    if (!userId) return res.status(404).json({ error: 'No such user' });
+
+    const { rows } = await query(
+      `INSERT INTO loans (user_id, loan_ref, direction, counterparty, principal_minor, terms, start_date, due_date, status, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9,'active'),$10)
+       ON CONFLICT (user_id, loan_ref) DO NOTHING RETURNING *`,
+      [userId, loanRef.trim(), direction, counterparty.trim(), String(principalMinor), terms ?? null, startDate ?? null, dueDate ?? null, status ?? null, notes ?? null],
+    );
+    if (!rows[0]) return res.status(409).json({ error: `Loan ${loanRef.trim()} already exists for ${username}` });
+    return res.status(200).json({ ok: true, loan: rows[0] });
+  }
+
+  if (req.method === 'PATCH') {
+    const { id, direction, counterparty, principalMinor, terms, startDate, dueDate, status, notes } = req.body ?? {};
+    if (typeof id !== 'string') return res.status(400).json({ error: 'id is required' });
+    const invalid = validateLoanFields({ direction, counterparty, principalMinor, startDate, dueDate, status });
+    if (invalid) return res.status(400).json({ error: invalid });
+    const { rows } = await query(
+      `UPDATE loans SET
+         direction = COALESCE($2, direction),
+         counterparty = COALESCE($3, counterparty),
+         principal_minor = COALESCE($4, principal_minor),
+         terms = COALESCE($5, terms),
+         start_date = COALESCE($6, start_date),
+         due_date = COALESCE($7, due_date),
+         status = COALESCE($8, status),
+         notes = COALESCE($9, notes),
+         updated_at = now()
+       WHERE id = $1 RETURNING *`,
+      [id, direction ?? null, counterparty?.trim() ?? null, principalMinor != null ? String(principalMinor) : null, terms ?? null, startDate ?? null, dueDate ?? null, status ?? null, notes ?? null],
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'No such loan' });
+    return res.status(200).json({ ok: true, loan: rows[0] });
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+
+/** Append-only: a correction is a negative repayment, never an edit. */
+async function handleLoanRepayments(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const { loanId, amountMinor, paidOn, memo, idempotencyKey } = req.body ?? {};
+  if (typeof loanId !== 'string') return res.status(400).json({ error: 'loanId is required' });
+  if (!(Number.isSafeInteger(Number(amountMinor)) && Number(amountMinor) !== 0)) {
+    return res.status(400).json({ error: 'amountMinor must be a non-zero whole number (negative to correct a mistake)' });
+  }
+  if (!DATE_PATTERN.test(paidOn ?? '')) return res.status(400).json({ error: 'paidOn must be YYYY-MM-DD' });
+
+  const { rows: loanRows } = await query('SELECT id FROM loans WHERE id = $1', [loanId]);
+  if (!loanRows[0]) return res.status(404).json({ error: 'No such loan' });
+
+  if (idempotencyKey) {
+    const { rows: existing } = await query('SELECT * FROM loan_repayments WHERE idempotency_key = $1', [idempotencyKey]);
+    if (existing[0]) return res.status(200).json({ ok: true, skipped: true, repayment: existing[0] });
+  }
+  const { rows } = await query(
+    `INSERT INTO loan_repayments (loan_id, amount_minor, paid_on, memo, idempotency_key)
+     VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+    [loanId, String(amountMinor), paidOn, memo ?? null, idempotencyKey ?? null],
+  );
+  return res.status(200).json({ ok: true, repayment: rows[0] });
+}
+
 /** Read-only: login activity per user, derived from sessions (one row per password login, never purged). */
 async function handleLoginStats(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -699,7 +807,9 @@ export default async function handler(req, res) {
   if (req.query.resource === 'delete-user') return handleDeleteUser(req, res);
   if (req.query.resource === 'login-stats') return handleLoginStats(req, res);
   if (req.query.resource === 'reset-credentials') return handleResetCredentials(req, res);
+  if (req.query.resource === 'loans') return handleLoans(req, res);
+  if (req.query.resource === 'loan-repayments') return handleLoanRepayments(req, res);
   return res.status(400).json({
-    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, login-stats, or reset-credentials',
+    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, login-stats, reset-credentials, loans, or loan-repayments',
   });
 }
