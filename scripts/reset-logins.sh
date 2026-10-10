@@ -3,6 +3,7 @@
 #
 #   bash scripts/reset-logins.sh joan juliet     # just these members
 #   bash scripts/reset-logins.sh all             # every member
+#   bash scripts/reset-logins.sh                 # asks which members (double-click friendly)
 #
 # Run it from your own computer. It asks for the admin token (hidden). New
 # passwords and PINs are generated HERE, sent once to the app (which keeps
@@ -12,9 +13,15 @@ set -euo pipefail
 
 BASE="${NOMAD_ADMIN_URL:-https://nomad-app-hntl.vercel.app/api/admin}"
 
+# Double-clicked scripts open a window that closes the moment the script
+# exits, taking any message with it — so always wait for Enter first.
+trap 'echo; read -rp "Press Enter to close this window…" _' EXIT
+
 if [ $# -eq 0 ]; then
-  echo "Usage: bash $0 <username> [username…]   or   bash $0 all"
-  exit 1
+  echo "Which members should get a new login?"
+  read -rp "Usernames separated by spaces (or 'all'): " -a ARGS
+  [ ${#ARGS[@]} -gt 0 ] || { echo "No usernames entered — nothing changed."; exit 1; }
+  set -- "${ARGS[@]}"
 fi
 
 echo "Paste the admin token, then press Enter."
