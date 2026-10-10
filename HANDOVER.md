@@ -73,6 +73,7 @@ EXISTS` + `ALTER TABLE ADD COLUMN IF NOT EXISTS`, applied via
 - `sync-sheet` (GET) — reads a published-CSV shared savings ledger sheet, posts new rows as ledger entries. Runs daily via Vercel Cron.
 - `post-entries` (POST) — same validation as sync-sheet but takes pre-parsed rows directly (used when Claude reads a *private* sheet via the Drive connector and submits what it finds, avoiding "publish to web")
 - `sync-investments` (GET) — **new this session**, see below. Runs daily via Vercel Cron.
+- `reset-credentials` (POST) — `{ username, password?, pin? }`: sets a new password and/or PIN (stored only as bcrypt hashes, never echoed) and revokes all of that member's sessions. Use `bash scripts/reset-logins.sh <username…|all>` from your own machine: it generates the new logins locally and prints them once, so they never go through GitHub.
 
 ## Google Sheets integration
 

@@ -75,6 +75,12 @@
 // full history since the pilot started). Not page/feature analytics —
 // just login count, first/last login, and how many of those logins
 // completed the PIN step.
+//
+// resource=reset-credentials (POST): sets a user's new password and/or PIN
+// ({ username, password?, pin? }) and revokes every session they have, so
+// any device signed in with the old login is signed out. The caller
+// generates the new values and hands them to the member; they're only
+// ever stored as bcrypt hashes and never echoed back.
 import { readFileSync } from 'fs';
 import bcrypt from 'bcryptjs';
 import { db, query, withTransaction } from '../_lib/db.js';
@@ -385,6 +391,40 @@ async function handleDeleteUser(req, res) {
   return res.status(200).json({ ok: true });
 }
 
+const PIN_PATTERN = /^\d{4}$/;
+const MIN_PASSWORD_LENGTH = 10;
+
+async function handleResetCredentials(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const { username, password, pin } = req.body ?? {};
+  if (typeof username !== 'string' || !username.trim()) return res.status(400).json({ error: 'username is required' });
+  if (password == null && pin == null) return res.status(400).json({ error: 'pass a new password, a new pin, or both' });
+  if (password != null && (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH)) {
+    return res.status(400).json({ error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` });
+  }
+  if (pin != null && (typeof pin !== 'string' || !PIN_PATTERN.test(pin))) {
+    return res.status(400).json({ error: 'pin must be exactly 4 digits' });
+  }
+
+  const userId = await resolveUserId(username);
+  if (!userId) return res.status(404).json({ error: 'No such user' });
+
+  const passwordHash = password != null ? await bcrypt.hash(password, 10) : null;
+  const pinHash = pin != null ? await bcrypt.hash(pin, 10) : null;
+
+  const sessionsRevoked = await withTransaction(async (client) => {
+    await client.query(
+      'UPDATE users SET password_hash = COALESCE($1, password_hash), pin_hash = COALESCE($2, pin_hash) WHERE id = $3',
+      [passwordHash, pinHash, userId],
+    );
+    // Old credentials may be known to someone else, so a device that signed
+    // in with them must not stay signed in — every session ends here.
+    const { rowCount } = await client.query('UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL', [userId]);
+    return rowCount;
+  });
+  return res.status(200).json({ ok: true, username: username.trim().toLowerCase(), passwordReset: password != null, pinReset: pin != null, sessionsRevoked });
+}
+
 /** Read-only: login activity per user, derived from sessions (one row per password login, never purged). */
 async function handleLoginStats(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -658,7 +698,8 @@ export default async function handler(req, res) {
   if (req.query.resource === 'create-user') return handleCreateUser(req, res);
   if (req.query.resource === 'delete-user') return handleDeleteUser(req, res);
   if (req.query.resource === 'login-stats') return handleLoginStats(req, res);
+  if (req.query.resource === 'reset-credentials') return handleResetCredentials(req, res);
   return res.status(400).json({
-    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, or login-stats',
+    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, login-stats, or reset-credentials',
   });
 }
