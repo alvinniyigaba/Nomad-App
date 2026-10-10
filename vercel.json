@@ -8,5 +8,11 @@
       "path": "/api/admin?resource=sync-investments",
       "schedule": "10 6 * * *"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ]
 }
