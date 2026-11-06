@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ksh, fromMinor } from '../utils/format';
+import { useMoney } from '../hooks/useMoney';
 import { estimateYield, MANAGEMENT_FEE_PCT } from '../utils/yieldCalculator';
 
 function inputStyle() {
@@ -40,6 +41,7 @@ export default function YieldCalculator({ holdings = [] }) {
   const [years, setYears] = useState(2);
   const [transactionCostPct, setTransactionCostPct] = useState(1);
   const [expanded, setExpanded] = useState(false);
+  const money = useMoney();
 
   useEffect(() => {
     if (!holdings.length) return;
@@ -84,7 +86,7 @@ export default function YieldCalculator({ holdings = [] }) {
             Yield calculator
           </div>
           <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-faint)' }}>
-            {expanded ? 'An estimate, not a guarantee — actual returns vary.' : `Projected ${ksh(result.netValue)} after ${years || 0} ${Number(years) === 1 ? 'year' : 'years'}`}
+            {expanded ? 'An estimate, not a guarantee — actual returns vary.' : `Projected ${money.ksh(result.netValue)} after ${years || 0} ${Number(years) === 1 ? 'year' : 'years'}`}
           </div>
         </div>
         <div

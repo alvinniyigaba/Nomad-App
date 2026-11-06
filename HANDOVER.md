@@ -182,6 +182,18 @@ via `netLoansMinor` (`src/hooks/useLoans.js`), for active and overdue
 loans only — repaid and written-off loans drop out. Loan detail is
 `/loan?id=<loan id>`.
 
+## Hide balances
+
+An eye button on Home's Total position card (and on Position, Savings,
+Invest, Borrow, goal and loan screens) hides every amount at once, showing
+`UGX ••••••` instead. It is one setting for the whole app, remembered per
+device in localStorage (`nomad.hideBalances`); it is a privacy screen, not
+security, since the API still returns the figures. Screens get masked
+formatters from `useMoney()` (`src/hooks/useMoney.js`); amounts a member is
+typing (deposit/withdraw keypad and confirm button, the yield calculator's
+expanded inputs) deliberately stay visible. Any new screen showing a
+balance should use `useMoney()`, not `fmt`/`ksh` directly.
+
 ## Known gaps / unfinished business
 
 - **Confirm Mansa X actually landed in production.** It was seeded

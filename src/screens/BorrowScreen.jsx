@@ -2,7 +2,9 @@ import { useNavigate } from 'react-router-dom';
 import TerrainPattern from '../components/ds/TerrainPattern';
 import Badge from '../components/ds/Badge';
 import { Loading, ErrorState } from '../components/ScreenState';
-import { fmt, ksh, fromMinor, formatFullDate } from '../utils/format';
+import { fromMinor, formatFullDate } from '../utils/format';
+import { useMoney } from '../hooks/useMoney';
+import HideBalancesButton from '../components/HideBalancesButton';
 import { useLoans } from '../hooks/useLoans';
 import { LOAN_STATUS_BADGE as STATUS_BADGE } from '../utils/loans';
 
@@ -16,6 +18,7 @@ function SectionLabel({ children }) {
 }
 
 function LoanCard({ loan, onOpen }) {
+  const { fmt } = useMoney();
   const principal = fromMinor(loan.principalMinor);
   const repaid = fromMinor(loan.repaidMinor);
   const outstanding = fromMinor(loan.outstandingMinor);
@@ -60,6 +63,7 @@ function LoanCard({ loan, onOpen }) {
 export default function BorrowScreen() {
   const navigate = useNavigate();
   const { status, loans, totals, error, refetch } = useLoans();
+  const { ksh } = useMoney();
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
@@ -79,7 +83,10 @@ export default function BorrowScreen() {
           <TerrainPattern theme="ink" width={360} height={160} />
         </div>
         <div style={{ position: 'relative' }}>
-          <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>Owed to you</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>Owed to you</div>
+            <HideBalancesButton tone="ink" />
+          </div>
           <div style={{ marginTop: 8, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--accent-gold)' }}>
             {ksh(fromMinor(totals.owedToYouMinor))}
           </div>

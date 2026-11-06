@@ -2,7 +2,9 @@ import { useNavigate } from 'react-router-dom';
 import { Loading, ErrorState } from '../components/ScreenState';
 import TerrainPattern from '../components/ds/TerrainPattern';
 import { position } from '../data/mockData';
-import { fmt, ksh, fromMinor } from '../utils/format';
+import { fromMinor } from '../utils/format';
+import { useMoney } from '../hooks/useMoney';
+import HideBalancesButton from '../components/HideBalancesButton';
 import { useAppState } from '../state/AppStateContext';
 import { useAccounts } from '../hooks/useAccounts';
 import { useExternalHoldings } from '../hooks/useExternalHoldings';
@@ -32,6 +34,7 @@ export default function PositionSummaryScreen() {
   const { status, goal, liquid, groupGoals, error, refetch } = useAccounts();
   const { holdings: externalHoldings } = useExternalHoldings();
   const { loans, totals: loanTotals } = useLoans();
+  const { fmt, ksh } = useMoney();
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
@@ -59,7 +62,13 @@ export default function PositionSummaryScreen() {
           <TerrainPattern theme="ink" width={360} height={200} />
         </div>
         <div style={{ position: 'relative' }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-on-ink)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>
+              Total position
+            </div>
+            <HideBalancesButton tone="ink" />
+          </div>
+          <div style={{ marginTop: 8, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-on-ink)' }}>
             {ksh(total)}
           </div>
           <div style={{ marginTop: 6, fontWeight: 400, fontSize: 12, color: 'var(--accent-gold)' }}>+{ksh(position.monthChange)} this month</div>

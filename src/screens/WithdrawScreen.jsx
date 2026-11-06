@@ -4,6 +4,7 @@ import Button from '../components/ds/Button';
 import { Loading, ErrorState } from '../components/ScreenState';
 import { withdrawDestinations } from '../data/mockData';
 import { fmt, ksh, fromMinor } from '../utils/format';
+import { useMoney } from '../hooks/useMoney';
 import { useAppState } from '../state/AppStateContext';
 import { useAccounts } from '../hooks/useAccounts';
 
@@ -27,6 +28,7 @@ export default function WithdrawScreen() {
   const navigate = useNavigate();
   const { wd, setWd, dest, setDest } = useAppState();
   const { status, goal, liquid, groupGoals, error, refetch } = useAccounts();
+  const money = useMoney();
   const [accountId, setAccountId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -110,7 +112,7 @@ export default function WithdrawScreen() {
                 {a.isGroup ? ' (group)' : ''}
               </div>
               <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
-                {ksh(fromMinor(a.balanceMinor) - fromMinor(a.pledgedMinor))} available
+                {money.ksh(fromMinor(a.balanceMinor) - fromMinor(a.pledgedMinor))} available
               </div>
             </div>
           </div>
@@ -118,7 +120,7 @@ export default function WithdrawScreen() {
       </div>
       {goal && Number(goal.pledgedMinor) > 0 && (
         <div style={{ marginTop: 10, fontWeight: 300, fontSize: 11, lineHeight: 1.6, color: 'var(--text-faint)' }}>
-          {goal.name} is unavailable — {ksh(fromMinor(goal.pledgedMinor))} is pledged against your loan.
+          {goal.name} is unavailable — {money.ksh(fromMinor(goal.pledgedMinor))} is pledged against your loan.
         </div>
       )}
 

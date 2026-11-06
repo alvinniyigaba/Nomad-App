@@ -2,6 +2,26 @@ import { createContext, useContext, useEffect, useMemo, useState, useCallback } 
 
 const AppStateContext = createContext(null);
 
+const HIDE_BALANCES_KEY = 'nomad.hideBalances';
+
+// Remembered per device. Storage can be unavailable (private browsing,
+// blocked site data), so every read and write is allowed to fail quietly.
+function readHideBalances() {
+  try {
+    return window.localStorage.getItem(HIDE_BALANCES_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeHideBalances(hidden) {
+  try {
+    window.localStorage.setItem(HIDE_BALANCES_KEY, hidden ? '1' : '0');
+  } catch {
+    // Not saved; the setting still applies until the app is closed.
+  }
+}
+
 async function api(path, body) {
   const res = await fetch(path, {
     method: 'POST',
@@ -22,6 +42,14 @@ export function AppStateProvider({ children }) {
   const [emailStatements, setEmailStatements] = useState(true);
   const [faceId, setFaceId] = useState(true);
   const [push, setPush] = useState(true);
+  const [balancesHidden, setBalancesHidden] = useState(readHideBalances);
+
+  const toggleBalancesHidden = useCallback(() => {
+    setBalancesHidden((v) => {
+      writeHideBalances(!v);
+      return !v;
+    });
+  }, []);
 
   const refreshSession = useCallback(async () => {
     const res = await fetch('/api/auth/session');
@@ -97,8 +125,11 @@ export function AppStateProvider({ children }) {
       toggleFaceId: () => setFaceId((v) => !v),
       push,
       togglePush: () => setPush((v) => !v),
+
+      balancesHidden,
+      toggleBalancesHidden,
     }),
-    [authStatus, user, login, verifyPin, lockApp, signOut, wd, dest, emailStatements, faceId, push],
+    [authStatus, user, login, verifyPin, lockApp, signOut, wd, dest, emailStatements, faceId, push, balancesHidden, toggleBalancesHidden],
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

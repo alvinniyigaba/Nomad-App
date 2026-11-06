@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import Badge from '../components/ds/Badge';
 import TerrainPattern from '../components/ds/TerrainPattern';
 import YieldCalculator from '../components/YieldCalculator';
-import { fmt, ksh, fromMinor, pct, formatFullDate } from '../utils/format';
+import { fromMinor, pct, formatFullDate } from '../utils/format';
+import { useMoney } from '../hooks/useMoney';
+import HideBalancesButton from '../components/HideBalancesButton';
 import { useExternalHoldings } from '../hooks/useExternalHoldings';
 import { buildPortfolioSeries, ytdChangeMinor, chartPolylinePoints, positionInvestedMinor } from '../utils/investmentSeries';
 
@@ -12,6 +14,7 @@ const PRODUCT_TYPE_LABEL = { savings: 'Savings account', fixed_deposit: 'Fixed d
 
 function HoldingCard({ title, meta, value, footer, dashed, ink, badge, details }) {
   const [expanded, setExpanded] = useState(false);
+  const { fmt } = useMoney();
   const expandable = !!details;
 
   return (
@@ -97,6 +100,7 @@ function HoldingCard({ title, meta, value, footer, dashed, ink, badge, details }
 export default function InvestScreen() {
   const navigate = useNavigate();
   const { holdings } = useExternalHoldings();
+  const { ksh } = useMoney();
 
   const nomadActive = holdings.filter((h) => h.managedBy === 'nomad' && h.status === 'active');
   const nomadInvited = holdings.filter((h) => h.managedBy === 'nomad' && h.status === 'invited');
@@ -120,12 +124,15 @@ export default function InvestScreen() {
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
           INVESTMENTS
         </div>
-        <div onClick={() => navigate('/statements')} style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)', cursor: 'pointer' }}>
-          LETTERS
+        <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
+          <HideBalancesButton />
+          <div onClick={() => navigate('/statements')} style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)', cursor: 'pointer' }}>
+            LETTERS
+          </div>
         </div>
       </div>
 

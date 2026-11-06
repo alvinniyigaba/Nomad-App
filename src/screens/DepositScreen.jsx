@@ -4,6 +4,7 @@ import Button from '../components/ds/Button';
 import { Loading, ErrorState } from '../components/ScreenState';
 import { withdrawDestinations as rails } from '../data/mockData';
 import { fmt, ksh, fromMinor } from '../utils/format';
+import { useMoney } from '../hooks/useMoney';
 import { useAccounts } from '../hooks/useAccounts';
 
 const PRESETS = [5000, 20000, 50000];
@@ -65,6 +66,7 @@ export default function DepositScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { status, goal, liquid, groupGoals, accounts, error, refetch } = useAccounts();
+  const money = useMoney();
   const [accountId, setAccountId] = useState(null);
   const [amount, setAmount] = useState(PRESETS[0]);
   const [rail, setRail] = useState(rails[0].id);
@@ -123,7 +125,7 @@ export default function DepositScreen() {
         {goal && (
           <RadioRow
             title={goal.name}
-            meta={`${ksh(fromMinor(goal.balanceMinor))} saved`}
+            meta={`${money.ksh(fromMinor(goal.balanceMinor))} saved`}
             selected={accountId === goal.id}
             onClick={() => setAccountId(goal.id)}
           />
@@ -131,7 +133,7 @@ export default function DepositScreen() {
         {liquid && (
           <RadioRow
             title={liquid.name}
-            meta={`${ksh(fromMinor(liquid.balanceMinor))} saved`}
+            meta={`${money.ksh(fromMinor(liquid.balanceMinor))} saved`}
             selected={accountId === liquid.id}
             onClick={() => setAccountId(liquid.id)}
           />
@@ -140,7 +142,7 @@ export default function DepositScreen() {
           <RadioRow
             key={g.id}
             title={`${g.name} (group)`}
-            meta={`${ksh(fromMinor(g.balanceMinor))} saved`}
+            meta={`${money.ksh(fromMinor(g.balanceMinor))} saved`}
             selected={accountId === g.id}
             onClick={() => setAccountId(g.id)}
           />

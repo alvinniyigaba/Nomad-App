@@ -5,7 +5,9 @@ import Toggle from '../components/ds/Toggle';
 import Badge from '../components/ds/Badge';
 import { Loading, ErrorState } from '../components/ScreenState';
 import { rates } from '../data/mockData';
-import { fmt, ksh, fromMinor, formatMonthYear, formatDayMonth, capitalize } from '../utils/format';
+import { fromMinor, formatMonthYear, formatDayMonth, capitalize } from '../utils/format';
+import { useMoney } from '../hooks/useMoney';
+import HideBalancesButton from '../components/HideBalancesButton';
 import { paceStatus } from '../utils/pacing';
 import { useAccounts } from '../hooks/useAccounts';
 
@@ -16,6 +18,7 @@ export default function GoalDetailScreen() {
   const [searchParams] = useSearchParams();
   const savingsRateLabel = rates.savings.toFixed(1) + '% p.a.';
   const { status, goal: individualGoal, accounts, error, refetch } = useAccounts();
+  const { fmt, ksh } = useMoney();
   const [savingAutoSave, setSavingAutoSave] = useState(false);
   const [closing, setClosing] = useState(false);
   const [closeError, setCloseError] = useState('');
@@ -67,11 +70,14 @@ export default function GoalDetailScreen() {
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
-      <div onClick={() => navigate('/save')} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-        <div style={{ fontWeight: 300, fontSize: 20, color: 'var(--text-muted)', lineHeight: 1 }}>←</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
-          {goal.name.toUpperCase()}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div onClick={() => navigate('/save')} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+          <div style={{ fontWeight: 300, fontSize: 20, color: 'var(--text-muted)', lineHeight: 1 }}>←</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
+            {goal.name.toUpperCase()}
+          </div>
         </div>
+        <HideBalancesButton />
       </div>
 
       <div style={{ marginTop: 22, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>

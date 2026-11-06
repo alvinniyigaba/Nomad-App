@@ -1,7 +1,9 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Badge from '../components/ds/Badge';
 import { Loading, ErrorState } from '../components/ScreenState';
-import { fmt, ksh, fromMinor, formatFullDate } from '../utils/format';
+import { fromMinor, formatFullDate } from '../utils/format';
+import { useMoney } from '../hooks/useMoney';
+import HideBalancesButton from '../components/HideBalancesButton';
 import { useLoans } from '../hooks/useLoans';
 import { LOAN_STATUS_BADGE as STATUS_BADGE } from '../utils/loans';
 
@@ -19,6 +21,7 @@ export default function LoanScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { status, loans, error, refetch } = useLoans();
+  const { fmt, ksh } = useMoney();
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
@@ -55,7 +58,10 @@ export default function LoanScreen() {
         <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
           {lent ? `${loan.counterparty} still owes you` : `You still owe ${loan.counterparty}`}
         </div>
-        {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
+          <HideBalancesButton />
+        </div>
       </div>
       <div style={{ marginTop: 9, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>
         {ksh(fromMinor(loan.outstandingMinor))}

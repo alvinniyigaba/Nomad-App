@@ -5,7 +5,9 @@ import TerrainPattern from '../components/ds/TerrainPattern';
 import Button from '../components/ds/Button';
 import { Loading, ErrorState } from '../components/ScreenState';
 import { position } from '../data/mockData';
-import { fmt, ksh, fromMinor, formatMonthYear, capitalize, greeting } from '../utils/format';
+import { fromMinor, formatMonthYear, capitalize, greeting } from '../utils/format';
+import { useMoney } from '../hooks/useMoney';
+import HideBalancesButton from '../components/HideBalancesButton';
 import { paceStatus } from '../utils/pacing';
 import { useAppState } from '../state/AppStateContext';
 import { useAccounts } from '../hooks/useAccounts';
@@ -21,6 +23,7 @@ export default function HomeScreen() {
   const { holdings } = useExternalHoldings();
   const { kyc } = useKyc();
   const { totals: loanTotals } = useLoans();
+  const { fmt, ksh } = useMoney();
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
@@ -91,8 +94,11 @@ export default function HomeScreen() {
           <TerrainPattern theme="ink" width={360} height={200} />
         </div>
         <div style={{ position: 'relative' }}>
-          <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>
-            Total position
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>
+              Total position
+            </div>
+            <HideBalancesButton tone="ink" />
           </div>
           <div style={{ marginTop: 8, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-on-ink)' }}>
             {ksh(total)}

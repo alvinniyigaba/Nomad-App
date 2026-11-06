@@ -3,7 +3,9 @@ import Badge from '../components/ds/Badge';
 import Button from '../components/ds/Button';
 import { Loading, ErrorState } from '../components/ScreenState';
 import { rates } from '../data/mockData';
-import { fmt, ksh, fromMinor, formatMonthYear } from '../utils/format';
+import { fromMinor, formatMonthYear } from '../utils/format';
+import { useMoney } from '../hooks/useMoney';
+import HideBalancesButton from '../components/HideBalancesButton';
 import { paceStatus } from '../utils/pacing';
 import { useAccounts } from '../hooks/useAccounts';
 
@@ -11,6 +13,7 @@ export default function SavingsScreen() {
   const navigate = useNavigate();
   const savingsRateLabel = rates.savings.toFixed(1) + '% p.a.';
   const { status, goal, liquid, groupGoals, error, refetch } = useAccounts();
+  const { fmt, ksh } = useMoney();
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
@@ -23,8 +26,11 @@ export default function SavingsScreen() {
 
   return (
     <div style={{ padding: '0 22px 28px' }}>
-      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
-        SAVINGS
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
+          SAVINGS
+        </div>
+        <HideBalancesButton />
       </div>
       <div style={{ marginTop: 18, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>
         {ksh(totalBalance)}
