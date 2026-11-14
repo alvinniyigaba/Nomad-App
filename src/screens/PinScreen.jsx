@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NomadLogo from '../components/ds/NomadLogo';
-import TerrainPattern from '../components/ds/TerrainPattern';
 import { useAppState } from '../state/AppStateContext';
 import { capitalize } from '../utils/format';
+import { TerrainBackdrop } from '../components/ui';
 
 const DIGIT_STYLE = {
   font: 'var(--font-display)',
@@ -85,9 +85,7 @@ export default function PinScreen() {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'var(--surface-ink)', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        <TerrainPattern theme="ink" width={480} height={960} showRoute={false} contourOpacity={0.09} />
-      </div>
+      <TerrainBackdrop theme="ink" width={480} height={960} showRoute={false} contourOpacity={0.09} />
       <div
         className="nomad-scroll"
         style={{

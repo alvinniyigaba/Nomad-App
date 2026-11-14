@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NomadLogo from '../components/ds/NomadLogo';
-import TerrainPattern from '../components/ds/TerrainPattern';
+import { TerrainBackdrop } from '../components/ui';
 
 export default function SplashScreen() {
   const navigate = useNavigate();
@@ -24,9 +24,7 @@ export default function SplashScreen() {
         justifyContent: 'center',
       }}
     >
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        <TerrainPattern theme="ink" width={480} height={960} />
-      </div>
+      <TerrainBackdrop theme="ink" width={480} height={960} />
       <div
         style={{
           position: 'relative',

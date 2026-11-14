@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import { Loading, ErrorState } from '../components/ScreenState';
-import TerrainPattern from '../components/ds/TerrainPattern';
 import { position } from '../data/mockData';
 import { fromMinor } from '../utils/format';
 import { useMoney } from '../hooks/useMoney';
@@ -10,20 +9,13 @@ import { useAccounts } from '../hooks/useAccounts';
 import { useExternalHoldings } from '../hooks/useExternalHoldings';
 import { positionInvestedMinor } from '../utils/investmentSeries';
 import { useLoans, netLoansMinor } from '../hooks/useLoans';
+import { Amount, BackTitle, Eyebrow, InkCard, Screen } from '../components/ui';
 
 function Row({ label, value, muted, indent }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '13px 0', borderBottom: '1px solid var(--border-default)', paddingLeft: indent ? 16 : 0 }}>
       <span style={{ fontWeight: 300, fontSize: 13, color: muted ? 'var(--text-faint)' : 'var(--text-body)' }}>{label}</span>
       <span style={{ fontWeight: 500, fontSize: 13, color: muted ? 'var(--text-faint)' : 'var(--text-heading)' }}>{value}</span>
-    </div>
-  );
-}
-
-function SectionLabel({ children }) {
-  return (
-    <div style={{ marginTop: 26, marginBottom: 4, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-      {children}
     </div>
   );
 }
@@ -49,33 +41,21 @@ export default function PositionSummaryScreen() {
   const openLoans = loans.filter((l) => (l.status === 'active' || l.status === 'overdue') && Number(l.outstandingMinor) > 0);
 
   return (
-    <div style={{ padding: '0 22px 28px' }}>
-      <div onClick={() => navigate('/home')} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-        <div style={{ fontWeight: 300, fontSize: 20, color: 'var(--text-muted)', lineHeight: 1 }}>←</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
-          YOUR POSITION
-        </div>
-      </div>
+    <Screen>
+      <BackTitle onBack={() => navigate('/home')}>
+        YOUR POSITION
+      </BackTitle>
 
-      <div style={{ marginTop: 20, position: 'relative', overflow: 'hidden', background: 'var(--surface-ink)', border: '1px solid rgba(201,138,43,0.28)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-md)' }}>
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <TerrainPattern theme="ink" width={360} height={200} />
+      <InkCard>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <Eyebrow tone="ink">Total position</Eyebrow>
+          <HideBalancesButton tone="ink" />
         </div>
-        <div style={{ position: 'relative' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>
-              Total position
-            </div>
-            <HideBalancesButton tone="ink" />
-          </div>
-          <div style={{ marginTop: 8, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-on-ink)' }}>
-            {ksh(total)}
-          </div>
-          <div style={{ marginTop: 6, fontWeight: 400, fontSize: 12, color: 'var(--accent-gold)' }}>+{ksh(position.monthChange)} this month</div>
-        </div>
-      </div>
+        <Amount top={8} color="var(--text-on-ink)">{ksh(total)}</Amount>
+        <div style={{ marginTop: 6, fontWeight: 400, fontSize: 12, color: 'var(--accent-gold)' }}>+{ksh(position.monthChange)} this month</div>
+      </InkCard>
 
-      <SectionLabel>Savings</SectionLabel>
+      <Eyebrow top={26} bottom={4}>Savings</Eyebrow>
       {goal && (
         <div onClick={() => navigate('/save/goal')} style={{ cursor: 'pointer' }}>
           <Row label={goal.name} value={fmt(fromMinor(goal.balanceMinor))} />
@@ -85,7 +65,7 @@ export default function PositionSummaryScreen() {
 
       {groupGoals.length > 0 && (
         <>
-          <SectionLabel>Group goals</SectionLabel>
+          <Eyebrow top={26} bottom={4}>Group goals</Eyebrow>
           {groupGoals.map((g) => {
             const myContribution = g.members.find((m) => m.username === user?.username)?.contributionMinor ?? '0';
             return (
@@ -100,7 +80,7 @@ export default function PositionSummaryScreen() {
         </>
       )}
 
-      <SectionLabel>Investments</SectionLabel>
+      <Eyebrow top={26} bottom={4}>Investments</Eyebrow>
       {nomadHoldings.length > 0 || onRecordHoldings.length > 0 ? (
         <>
           {nomadHoldings.map((h) => {
@@ -124,7 +104,7 @@ export default function PositionSummaryScreen() {
         </div>
       )}
 
-      <SectionLabel>Loans</SectionLabel>
+      <Eyebrow top={26} bottom={4}>Loans</Eyebrow>
       {openLoans.length > 0 ? (
         openLoans.map((l) => (
           <div key={l.id} onClick={() => navigate(`/loan?id=${l.id}`)} style={{ cursor: 'pointer' }}>
@@ -139,6 +119,6 @@ export default function PositionSummaryScreen() {
           <Row label="Loans" value={fmt(0)} muted />
         </div>
       )}
-    </div>
+    </Screen>
   );
 }

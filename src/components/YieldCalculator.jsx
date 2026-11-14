@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ksh, fromMinor } from '../utils/format';
 import { useMoney } from '../hooks/useMoney';
 import { estimateYield, MANAGEMENT_FEE_PCT } from '../utils/yieldCalculator';
+import { Eyebrow } from './ui';
 
 function inputStyle() {
   return {
@@ -82,9 +83,7 @@ export default function YieldCalculator({ holdings = [] }) {
         }}
       >
         <div>
-          <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            Yield calculator
-          </div>
+          <Eyebrow>Yield calculator</Eyebrow>
           <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-faint)' }}>
             {expanded ? 'An estimate, not a guarantee — actual returns vary.' : `Projected ${money.ksh(result.netValue)} after ${years || 0} ${Number(years) === 1 ? 'year' : 'years'}`}
           </div>

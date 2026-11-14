@@ -8,6 +8,7 @@ import { useMoney } from '../hooks/useMoney';
 import HideBalancesButton from '../components/HideBalancesButton';
 import { paceStatus } from '../utils/pacing';
 import { useAccounts } from '../hooks/useAccounts';
+import { Amount, Card, Eyebrow, ItemMeta, ItemTitle, ProgressBar, Screen, ScreenTitle, Stack } from '../components/ui';
 
 export default function SavingsScreen() {
   const navigate = useNavigate();
@@ -25,37 +26,26 @@ export default function SavingsScreen() {
   const pledged = fromMinor(goal?.pledgedMinor ?? 0);
 
   return (
-    <div style={{ padding: '0 22px 28px' }}>
+    <Screen>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
-          SAVINGS
-        </div>
+        <ScreenTitle>SAVINGS</ScreenTitle>
         <HideBalancesButton />
       </div>
-      <div style={{ marginTop: 18, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>
-        {ksh(totalBalance)}
-      </div>
+      <Amount top={18}>{ksh(totalBalance)}</Amount>
       <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
         <Badge variant="outline">{savingsRateLabel}</Badge>
         <span style={{ fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>Interest paid monthly</span>
       </div>
 
-      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <Stack top={24} gap={12}>
         {goal && (
-          <div
-            onClick={() => navigate('/save/goal')}
-            style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }}
-          >
+          <Card onClick={() => navigate('/save/goal')}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-              <div style={{ fontWeight: 400, fontSize: 16, color: 'var(--text-heading)' }}>{goal.name}</div>
+              <ItemTitle size={16}>{goal.name}</ItemTitle>
               <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 17, color: 'var(--text-heading)' }}>{fmt(goalBalance)}</div>
             </div>
-            <div style={{ marginTop: 6, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
-              of {ksh(fromMinor(goal.targetMinor))} · {formatMonthYear(goal.targetDate)}
-            </div>
-            <div style={{ marginTop: 14, height: 6, background: 'var(--bone-panel)', borderRadius: 3, overflow: 'hidden' }}>
-              <div style={{ width: Math.min(100, pace?.pctFunded ?? 0) + '%', height: 6, background: 'var(--ink-green)' }} />
-            </div>
+            <ItemMeta top={6}>of {ksh(fromMinor(goal.targetMinor))} · {formatMonthYear(goal.targetDate)}</ItemMeta>
+            <ProgressBar top={14} pct={Math.min(100, pace?.pctFunded ?? 0)} />
             <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', fontWeight: 300, fontSize: 11 }}>
               <span style={{ color: 'var(--text-muted)' }}>{pace?.pctFunded ?? 0}% funded</span>
               {pace?.behindMinor > 0 && (
@@ -63,57 +53,45 @@ export default function SavingsScreen() {
               )}
               {pace?.aheadMinor > 0 && <span style={{ color: 'var(--success)' }}>{ksh(pace.aheadMinor / 100)} ahead of pace</span>}
             </div>
-          </div>
+          </Card>
         )}
 
         {liquid && (
-          <div style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-sm)' }}>
+          <Card>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-              <div style={{ fontWeight: 400, fontSize: 16, color: 'var(--text-heading)' }}>{liquid.name}</div>
+              <ItemTitle size={16}>{liquid.name}</ItemTitle>
               <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 17, color: 'var(--text-heading)' }}>{fmt(liquidBalance)}</div>
             </div>
-            <div style={{ marginTop: 6, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>No target · fully liquid</div>
-            <div style={{ marginTop: 14, height: 6, background: 'var(--bone-panel)', borderRadius: 3, overflow: 'hidden' }}>
-              <div style={{ width: '100%', height: 6, background: 'var(--savannah-sand)' }} />
-            </div>
+            <ItemMeta top={6}>No target · fully liquid</ItemMeta>
+            <ProgressBar top={14} pct={100} fill="var(--savannah-sand)" />
             <div style={{ marginTop: 8, fontWeight: 300, fontSize: 11, color: 'var(--text-muted)' }}>Available to withdraw today</div>
-          </div>
+          </Card>
         )}
-      </div>
+      </Stack>
 
       {groupGoals.length > 0 && (
         <>
-          <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            Group goals
-          </div>
-          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Eyebrow top={26}>Group goals</Eyebrow>
+          <Stack gap={12}>
             {groupGoals.map((g) => {
               const gBalance = fromMinor(g.balanceMinor);
               const gPace = paceStatus({ createdAt: g.createdAt, targetDate: g.targetDate, targetMinor: g.targetMinor, balanceMinor: g.balanceMinor });
               return (
-                <div
-                  key={g.id}
-                  onClick={() => navigate(`/save/goal?account=${g.id}`)}
-                  style={{ background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }}
-                >
+                <Card key={g.id} onClick={() => navigate(`/save/goal?account=${g.id}`)}>
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ fontWeight: 400, fontSize: 16, color: 'var(--text-heading)' }}>{g.name}</div>
+                      <ItemTitle size={16}>{g.name}</ItemTitle>
                       <Badge variant="outline">{g.myRole === 'admin' ? 'Admin' : 'Member'}</Badge>
                     </div>
                     <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 17, color: 'var(--text-heading)' }}>{fmt(gBalance)}</div>
                   </div>
-                  <div style={{ marginTop: 6, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
-                    of {ksh(fromMinor(g.targetMinor))} · {formatMonthYear(g.targetDate)} · {g.members.length} members
-                  </div>
-                  <div style={{ marginTop: 14, height: 6, background: 'var(--bone-panel)', borderRadius: 3, overflow: 'hidden' }}>
-                    <div style={{ width: Math.min(100, gPace?.pctFunded ?? 0) + '%', height: 6, background: 'var(--ink-green)' }} />
-                  </div>
+                  <ItemMeta top={6}>of {ksh(fromMinor(g.targetMinor))} · {formatMonthYear(g.targetDate)} · {g.members.length} members</ItemMeta>
+                  <ProgressBar top={14} pct={Math.min(100, gPace?.pctFunded ?? 0)} />
                   <div style={{ marginTop: 8, fontWeight: 300, fontSize: 11, color: 'var(--text-muted)' }}>{gPace?.pctFunded ?? 0}% funded</div>
-                </div>
+                </Card>
               );
             })}
-          </div>
+          </Stack>
         </>
       )}
 
@@ -131,6 +109,6 @@ export default function SavingsScreen() {
           Open a new goal
         </Button>
       </div>
-    </div>
+    </Screen>
   );
 }

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NomadLogo from '../components/ds/NomadLogo';
-import TerrainPattern from '../components/ds/TerrainPattern';
 import Button from '../components/ds/Button';
 import { useAppState } from '../state/AppStateContext';
+import { TerrainBackdrop } from '../components/ui';
 
 function fieldStyle(focused) {
   return {
@@ -46,9 +46,7 @@ export default function PasswordScreen() {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'var(--surface-ink)', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        <TerrainPattern theme="ink" width={480} height={960} showRoute={false} contourOpacity={0.09} />
-      </div>
+      <TerrainBackdrop theme="ink" width={480} height={960} showRoute={false} contourOpacity={0.09} />
       <form
         onSubmit={handleSubmit}
         className="nomad-scroll"

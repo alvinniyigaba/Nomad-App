@@ -8,14 +8,7 @@ import { formatFullDate } from '../utils/format';
 // else here comes from the authenticated user.
 import { useAppState } from '../state/AppStateContext';
 import { useKyc } from '../hooks/useKyc';
-
-function SectionLabel({ children, style = {} }) {
-  return (
-    <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)', ...style }}>
-      {children}
-    </div>
-  );
-}
+import { ActionLabel, BackTitle, Eyebrow, ItemMeta, ItemTitle, Screen } from '../components/ui';
 
 function SettingsCard({ children }) {
   return (
@@ -49,8 +42,8 @@ function SettingsRow({ title, meta, right, onClick, last = false }) {
       }}
     >
       <div>
-        <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>{title}</div>
-        {meta && <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{meta}</div>}
+        <ItemTitle>{title}</ItemTitle>
+        {meta && <ItemMeta>{meta}</ItemMeta>}
       </div>
       {right}
     </div>
@@ -75,13 +68,10 @@ export default function ProfileScreen() {
   ].filter(([, value]) => value);
 
   return (
-    <div style={{ padding: '0 22px 28px' }}>
-      <div onClick={() => navigate('/home')} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-        <div style={{ fontWeight: 300, fontSize: 20, color: 'var(--text-muted)', lineHeight: 1 }}>←</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
-          PROFILE
-        </div>
-      </div>
+    <Screen>
+      <BackTitle onBack={() => navigate('/home')}>
+        PROFILE
+      </BackTitle>
 
       <div style={{ marginTop: 22, display: 'flex', alignItems: 'center', gap: 16 }}>
         <div
@@ -105,9 +95,7 @@ export default function ProfileScreen() {
           <div style={{ fontWeight: 400, fontSize: 18, color: 'var(--text-heading)' }}>
             {user?.name} {user?.surname}
           </div>
-          <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
-            {user?.phoneMasked} · member since {user?.memberSince}
-          </div>
+          <ItemMeta>{user?.phoneMasked} · member since {user?.memberSince}</ItemMeta>
         </div>
       </div>
 
@@ -128,11 +116,11 @@ export default function ProfileScreen() {
           <div style={{ fontWeight: 300, fontSize: 12, lineHeight: 1.5, color: 'var(--text-body)', flex: 1 }}>
             Verification is at step {kyc.step} of {kyc.totalSteps}. Finish it to raise your limits.
           </div>
-          <div style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)' }}>OPEN</div>
+          <ActionLabel>OPEN</ActionLabel>
         </div>
       )}
 
-      <SectionLabel style={{ marginTop: 26 }}>Your profile</SectionLabel>
+      <Eyebrow top={26}>Your profile</Eyebrow>
       <SettingsCard>
         <SettingsRow
           title="Personal details"
@@ -157,7 +145,7 @@ export default function ProfileScreen() {
         </SettingsCard>
       )}
 
-      <SectionLabel style={{ marginTop: 24 }}>Documents</SectionLabel>
+      <Eyebrow top={24}>Documents</Eyebrow>
       <div
         onClick={() => navigate('/statements')}
         style={{
@@ -173,15 +161,13 @@ export default function ProfileScreen() {
         }}
       >
         <div>
-          <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>Statements and letters</div>
-          <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
-            Statements, agreements, tax certificates
-          </div>
+          <ItemTitle>Statements and letters</ItemTitle>
+          <ItemMeta>Statements, agreements, tax certificates</ItemMeta>
         </div>
-        <div style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)' }}>VIEW</div>
+        <ActionLabel>VIEW</ActionLabel>
       </div>
 
-      <SectionLabel style={{ marginTop: 24 }}>Settings</SectionLabel>
+      <Eyebrow top={24}>Settings</Eyebrow>
       <SettingsCard>
         <SettingsRow
           title="Face ID unlock"
@@ -237,6 +223,6 @@ export default function ProfileScreen() {
       <div style={{ marginTop: 16, textAlign: 'center', fontWeight: 300, fontSize: 11, lineHeight: 1.6, color: 'var(--text-faint)' }}>
         Building a Better Africa · {appVersion}
       </div>
-    </div>
+    </Screen>
   );
 }

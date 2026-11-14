@@ -7,6 +7,7 @@ import { fmt, ksh, fromMinor } from '../utils/format';
 import { useMoney } from '../hooks/useMoney';
 import { useAppState } from '../state/AppStateContext';
 import { useAccounts } from '../hooks/useAccounts';
+import { BackTitle, Eyebrow, ItemMeta, ItemTitle, Screen, Stack } from '../components/ui';
 
 function chipStyle(active) {
   return {
@@ -78,18 +79,13 @@ export default function WithdrawScreen() {
   }
 
   return (
-    <div style={{ padding: '0 22px 28px' }}>
-      <div onClick={() => navigate('/home')} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-        <div style={{ fontWeight: 300, fontSize: 19, color: 'var(--text-muted)', lineHeight: 1 }}>✕</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
-          WITHDRAW
-        </div>
-      </div>
+    <Screen>
+      <BackTitle onBack={() => navigate('/home')} close>
+        WITHDRAW
+      </BackTitle>
 
-      <div style={{ marginTop: 24, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        From
-      </div>
-      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <Eyebrow top={24}>From</Eyebrow>
+      <Stack top={10}>
         {sources.map((a) => (
           <div
             key={a.id}
@@ -107,26 +103,22 @@ export default function WithdrawScreen() {
             }}
           >
             <div>
-              <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>
+              <ItemTitle>
                 {a.name}
                 {a.isGroup ? ' (group)' : ''}
-              </div>
-              <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
-                {money.ksh(fromMinor(a.balanceMinor) - fromMinor(a.pledgedMinor))} available
-              </div>
+              </ItemTitle>
+              <ItemMeta>{money.ksh(fromMinor(a.balanceMinor) - fromMinor(a.pledgedMinor))} available</ItemMeta>
             </div>
           </div>
         ))}
-      </div>
+      </Stack>
       {goal && Number(goal.pledgedMinor) > 0 && (
         <div style={{ marginTop: 10, fontWeight: 300, fontSize: 11, lineHeight: 1.6, color: 'var(--text-faint)' }}>
           {goal.name} is unavailable — {money.ksh(fromMinor(goal.pledgedMinor))} is pledged against your loan.
         </div>
       )}
 
-      <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        Amount
-      </div>
+      <Eyebrow top={26}>Amount</Eyebrow>
       <div style={{ marginTop: 12, paddingBottom: 12, borderBottom: '1.5px solid var(--ink-green)', display: 'flex', alignItems: 'baseline', gap: 10 }}>
         <span style={{ fontWeight: 300, fontSize: 15, color: 'var(--text-muted)' }}>UGX</span>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 30, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>{fmt(wd)}</span>
@@ -142,10 +134,8 @@ export default function WithdrawScreen() {
         </div>
       </div>
 
-      <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        To
-      </div>
-      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <Eyebrow top={26}>To</Eyebrow>
+      <Stack>
         {withdrawDestinations.map((d) => (
           <div
             key={d.id}
@@ -162,8 +152,8 @@ export default function WithdrawScreen() {
             }}
           >
             <div>
-              <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>{d.label}</div>
-              <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{d.meta}</div>
+              <ItemTitle>{d.label}</ItemTitle>
+              <ItemMeta>{d.meta}</ItemMeta>
             </div>
             <div
               style={{
@@ -181,7 +171,7 @@ export default function WithdrawScreen() {
             </div>
           </div>
         ))}
-      </div>
+      </Stack>
 
       <div
         style={{
@@ -205,6 +195,6 @@ export default function WithdrawScreen() {
           {submitting ? 'Withdrawing…' : `Withdraw ${ksh(wd)}`}
         </Button>
       </div>
-    </div>
+    </Screen>
   );
 }

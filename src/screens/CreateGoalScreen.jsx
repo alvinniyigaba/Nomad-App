@@ -4,6 +4,7 @@ import Button from '../components/ds/Button';
 import Toggle from '../components/ds/Toggle';
 import { Loading } from '../components/ScreenState';
 import { useAccounts } from '../hooks/useAccounts';
+import { BackTitle, Eyebrow, ItemMeta, ItemTitle, Screen } from '../components/ui';
 
 function inputStyle() {
   return {
@@ -23,9 +24,7 @@ function inputStyle() {
 
 function label(text) {
   return (
-    <div style={{ marginTop: 22, marginBottom: 8, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-      {text}
-    </div>
+    <Eyebrow top={22} bottom={8}>{text}</Eyebrow>
   );
 }
 
@@ -90,13 +89,10 @@ export default function CreateGoalScreen() {
   if (users === null) return <Loading />;
 
   return (
-    <div style={{ padding: '0 22px 28px' }}>
-      <div onClick={() => navigate('/save')} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-        <div style={{ fontWeight: 300, fontSize: 19, color: 'var(--text-muted)', lineHeight: 1 }}>✕</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
-          NEW GOAL
-        </div>
-      </div>
+    <Screen>
+      <BackTitle onBack={() => navigate('/save')} close>
+        NEW GOAL
+      </BackTitle>
 
       {label('Goal name')}
       <input style={inputStyle()} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Shamba fund" />
@@ -109,8 +105,8 @@ export default function CreateGoalScreen() {
 
       <div style={{ marginTop: 22, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '17px 20px' }}>
         <div>
-          <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>Make this a group goal</div>
-          <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>Invite others to save toward it with you</div>
+          <ItemTitle>Make this a group goal</ItemTitle>
+          <ItemMeta>Invite others to save toward it with you</ItemMeta>
         </div>
         <Toggle on={isGroup} onClick={() => setIsGroup((v) => !v)} />
       </div>
@@ -170,6 +166,6 @@ export default function CreateGoalScreen() {
           {submitting ? 'Creating…' : 'Create goal'}
         </Button>
       </div>
-    </div>
+    </Screen>
   );
 }

@@ -6,11 +6,12 @@ import { useMoney } from '../hooks/useMoney';
 import HideBalancesButton from '../components/HideBalancesButton';
 import { useLoans } from '../hooks/useLoans';
 import { LOAN_STATUS_BADGE as STATUS_BADGE } from '../utils/loans';
+import { Amount, BackTitle, Eyebrow, ItemMeta, ItemTitle, ProgressBar, Screen } from '../components/ui';
 
 function Detail({ label, value, wide }) {
   return (
     <div style={wide ? { gridColumn: '1 / -1' } : undefined}>
-      <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{label}</div>
+      <Eyebrow tracking="0.14em">{label}</Eyebrow>
       <div style={{ marginTop: 4, fontWeight: 400, fontSize: 13, lineHeight: 1.5, color: 'var(--text-heading)' }}>{value}</div>
     </div>
   );
@@ -28,19 +29,16 @@ export default function LoanScreen() {
 
   const loan = loans.find((l) => l.id === searchParams.get('id'));
   const back = (
-    <div onClick={() => navigate('/borrow')} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-      <div style={{ fontWeight: 300, fontSize: 20, color: 'var(--text-muted)', lineHeight: 1 }}>←</div>
-      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
-        {loan ? loan.counterparty.toUpperCase() : 'LOAN'}
-      </div>
-    </div>
+    <BackTitle onBack={() => navigate('/borrow')}>
+      {loan ? loan.counterparty.toUpperCase() : 'LOAN'}
+    </BackTitle>
   );
   if (!loan) {
     return (
-      <div style={{ padding: '0 22px 28px' }}>
+      <Screen>
         {back}
         <div style={{ marginTop: 22, fontWeight: 300, fontSize: 13, color: 'var(--text-muted)' }}>This loan isn&apos;t on your records.</div>
-      </div>
+      </Screen>
     );
   }
 
@@ -51,28 +49,22 @@ export default function LoanScreen() {
   const badge = STATUS_BADGE[loan.status];
 
   return (
-    <div style={{ padding: '0 22px 28px' }}>
+    <Screen>
       {back}
 
       <div style={{ marginTop: 22, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
-        <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-          {lent ? `${loan.counterparty} still owes you` : `You still owe ${loan.counterparty}`}
-        </div>
+        <Eyebrow>{lent ? `${loan.counterparty} still owes you` : `You still owe ${loan.counterparty}`}</Eyebrow>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
           <HideBalancesButton />
         </div>
       </div>
-      <div style={{ marginTop: 9, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>
-        {ksh(fromMinor(loan.outstandingMinor))}
-      </div>
+      <Amount top={9}>{ksh(fromMinor(loan.outstandingMinor))}</Amount>
       <div style={{ marginTop: 4, fontWeight: 300, fontSize: 12, color: 'var(--text-faint)' }}>
         of {ksh(principal)} {lent ? 'lent' : 'borrowed'}
       </div>
 
-      <div style={{ marginTop: 16, height: 8, background: 'var(--bone-panel)' }}>
-        <div style={{ height: 8, background: 'var(--ink-green)', width: `${repaidPct}%` }} />
-      </div>
+      <ProgressBar top={16} pct={repaidPct} height={8} radius={0} />
       <div style={{ marginTop: 8, fontWeight: 500, fontSize: 12, color: 'var(--ink-green)' }}>{ksh(repaid)} repaid</div>
 
       <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 16, columnGap: 14 }}>
@@ -82,22 +74,20 @@ export default function LoanScreen() {
         {loan.notes && <Detail label="Notes" value={loan.notes} wide />}
       </div>
 
-      <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        Repayments
-      </div>
+      <Eyebrow top={26}>Repayments</Eyebrow>
       {loan.repayments.length === 0 ? (
         <div style={{ marginTop: 12, fontWeight: 300, fontSize: 13, color: 'var(--text-muted)' }}>No repayments yet.</div>
       ) : (
         [...loan.repayments].reverse().map((r) => (
           <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, padding: '13px 0', borderBottom: '1px solid var(--border-default)' }}>
             <div>
-              <div style={{ fontWeight: 400, fontSize: 13, color: 'var(--text-heading)' }}>{formatFullDate(r.paidOn)}</div>
-              {r.memo && <div style={{ marginTop: 4, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{r.memo}</div>}
+              <ItemTitle size={13}>{formatFullDate(r.paidOn)}</ItemTitle>
+              {r.memo && <ItemMeta top={4}>{r.memo}</ItemMeta>}
             </div>
             <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--text-heading)' }}>{fmt(fromMinor(r.amountMinor))}</div>
           </div>
         ))
       )}
-    </div>
+    </Screen>
   );
 }
