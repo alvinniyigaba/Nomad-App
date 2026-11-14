@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import NomadLogo from '../components/ds/NomadLogo';
 import RouteDivider from '../components/ds/RouteDivider';
-import TerrainPattern from '../components/ds/TerrainPattern';
 import Button from '../components/ds/Button';
 import { Loading, ErrorState } from '../components/ScreenState';
 import { position } from '../data/mockData';
@@ -15,6 +14,7 @@ import { useExternalHoldings } from '../hooks/useExternalHoldings';
 import { useKyc } from '../hooks/useKyc';
 import { useLoans, netLoansMinor } from '../hooks/useLoans';
 import { positionInvestedMinor } from '../utils/investmentSeries';
+import { ActionLabel, Amount, Card, Eyebrow, InkCard, ItemMeta, ItemTitle, Screen, Stack } from '../components/ui';
 
 export default function HomeScreen() {
   const navigate = useNavigate();
@@ -46,7 +46,7 @@ export default function HomeScreen() {
   const pace = goal ? paceStatus({ createdAt: goal.createdAt, targetDate: goal.targetDate, targetMinor: goal.targetMinor, balanceMinor: goal.balanceMinor }) : null;
 
   return (
-    <div style={{ padding: '0 22px 28px' }}>
+    <Screen>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <NomadLogo brand="group" layout="horizontal" size={13} />
         <div
@@ -86,40 +86,28 @@ export default function HomeScreen() {
         {greeting()}, {capitalize(user?.username)}.
       </div>
 
-      <div
-        onClick={() => navigate('/position')}
-        style={{ marginTop: 20, position: 'relative', overflow: 'hidden', background: 'var(--surface-ink)', border: '1px solid rgba(201,138,43,0.28)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-md)', cursor: 'pointer' }}
-      >
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <TerrainPattern theme="ink" width={360} height={200} />
+      <InkCard onClick={() => navigate('/position')}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <Eyebrow tone="ink">Total position</Eyebrow>
+          <HideBalancesButton tone="ink" />
         </div>
-        <div style={{ position: 'relative' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>
-              Total position
-            </div>
-            <HideBalancesButton tone="ink" />
+        <Amount top={8} color="var(--text-on-ink)">{ksh(total)}</Amount>
+        <div style={{ marginTop: 6, fontWeight: 400, fontSize: 12, color: 'var(--accent-gold)' }}>+{ksh(position.monthChange)} this month</div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+          <div onClick={(e) => { e.stopPropagation(); navigate('/save'); }} style={{ flex: 1, cursor: 'pointer' }}>
+            <Eyebrow tone="ink" tracking="0.18em">Saved</Eyebrow>
+            <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-on-ink)' }}>{fmt(saved)}</div>
           </div>
-          <div style={{ marginTop: 8, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-on-ink)' }}>
-            {ksh(total)}
+          <div onClick={(e) => { e.stopPropagation(); navigate('/invest'); }} style={{ flex: 1, cursor: 'pointer' }}>
+            <Eyebrow tone="ink" tracking="0.18em">Invested</Eyebrow>
+            <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-on-ink)' }}>{fmt(invested)}</div>
           </div>
-          <div style={{ marginTop: 6, fontWeight: 400, fontSize: 12, color: 'var(--accent-gold)' }}>+{ksh(position.monthChange)} this month</div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-            <div onClick={(e) => { e.stopPropagation(); navigate('/save'); }} style={{ flex: 1, cursor: 'pointer' }}>
-              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>Saved</div>
-              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-on-ink)' }}>{fmt(saved)}</div>
-            </div>
-            <div onClick={(e) => { e.stopPropagation(); navigate('/invest'); }} style={{ flex: 1, cursor: 'pointer' }}>
-              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>Invested</div>
-              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: 'var(--text-on-ink)' }}>{fmt(invested)}</div>
-            </div>
-            <div onClick={(e) => { e.stopPropagation(); navigate('/borrow'); }} style={{ flex: 1, cursor: 'pointer' }}>
-              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>Loans</div>
-              <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: loans < 0 ? 'var(--accent-clay)' : 'var(--text-on-ink)' }}>{fmt(loans)}</div>
-            </div>
+          <div onClick={(e) => { e.stopPropagation(); navigate('/borrow'); }} style={{ flex: 1, cursor: 'pointer' }}>
+            <Eyebrow tone="ink" tracking="0.18em">Loans</Eyebrow>
+            <div style={{ marginTop: 5, fontWeight: 500, fontSize: 13, color: loans < 0 ? 'var(--accent-clay)' : 'var(--text-on-ink)' }}>{fmt(loans)}</div>
           </div>
         </div>
-      </div>
+      </InkCard>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
         <Button variant="primary" size="md" full style={{ flex: 1 }} onClick={() => navigate('/deposit?account=liquid')}>
@@ -134,63 +122,33 @@ export default function HomeScreen() {
         <RouteDivider variant="straight" width={358} />
       </div>
 
-      <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        Needs your attention
-      </div>
+      <Eyebrow>Needs your attention</Eyebrow>
 
-      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <Stack top={14}>
         {goal && (
-          <div
-            onClick={() => navigate('/save/goal')}
-            style={{
-              background: 'var(--surface-card)',
-              border: '1px solid var(--border-default)',
-              borderRadius: 8,
-              padding: '17px 20px',
-              boxShadow: 'var(--shadow-sm)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              cursor: 'pointer',
-            }}
-          >
+          <Card padding="17px 20px" onClick={() => navigate('/save/goal')} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 11, height: 11, border: '1.4px solid var(--sand-line)', borderRadius: 6, flex: 'none' }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 400, fontSize: 15, color: 'var(--text-heading)' }}>
-                {goal.name} is {pace?.behindMinor > 0 ? 'behind pace' : 'on pace'}
-              </div>
-              <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
+              <ItemTitle size={15}>{goal.name} is {pace?.behindMinor > 0 ? 'behind pace' : 'on pace'}</ItemTitle>
+              <ItemMeta>
                 {pace?.behindMinor > 0
                   ? `${ksh(pace.behindMinor / 100)} short of ${formatMonthYear(goal.targetDate)}`
                   : `${pace?.pctFunded ?? 0}% funded · target ${formatMonthYear(goal.targetDate)}`}
-              </div>
+              </ItemMeta>
             </div>
-            <div style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)' }}>FUND</div>
-          </div>
+            <ActionLabel>FUND</ActionLabel>
+          </Card>
         )}
 
-        <div
-          onClick={() => navigate('/invest')}
-          style={{
-            background: 'var(--surface-card)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 8,
-            padding: '17px 20px',
-            boxShadow: 'var(--shadow-sm)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 14,
-            cursor: 'pointer',
-          }}
-        >
+        <Card padding="17px 20px" onClick={() => navigate('/invest')} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 11, height: 11, border: '1.4px solid var(--sand-line)', borderRadius: 6, flex: 'none' }} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 400, fontSize: 15, color: 'var(--text-heading)' }}>Terrain Fund II · invitation</div>
-            <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>Subscription window closes 30 September</div>
+            <ItemTitle size={15}>Terrain Fund II · invitation</ItemTitle>
+            <ItemMeta>Subscription window closes 30 September</ItemMeta>
           </div>
-          <div style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)' }}>READ</div>
-        </div>
-      </div>
+          <ActionLabel>READ</ActionLabel>
+        </Card>
+      </Stack>
 
       {kyc && !kyc.complete && (
         <div
@@ -209,9 +167,9 @@ export default function HomeScreen() {
           <div style={{ fontWeight: 300, fontSize: 12, lineHeight: 1.5, color: 'var(--text-body)', flex: 1 }}>
             Verification is at step {kyc.step} of {kyc.totalSteps}. Finish it to raise your limits.
           </div>
-          <div style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)' }}>OPEN</div>
+          <ActionLabel>OPEN</ActionLabel>
         </div>
       )}
-    </div>
+    </Screen>
   );
 }

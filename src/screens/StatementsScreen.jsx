@@ -3,6 +3,7 @@ import Button from '../components/ds/Button';
 import Toggle from '../components/ds/Toggle';
 import { documents } from '../data/mockData';
 import { useAppState } from '../state/AppStateContext';
+import { BackTitle, Card, Eyebrow, ItemMeta, ItemTitle, Screen, Stack } from '../components/ui';
 
 const FILTERS = ['ALL', 'SAVINGS', 'LOAN', 'FUNDS'];
 
@@ -11,13 +12,10 @@ export default function StatementsScreen() {
   const { user, emailStatements, toggleEmailStatements, lockApp } = useAppState();
 
   return (
-    <div style={{ padding: '0 22px 28px' }}>
-      <div onClick={() => navigate('/profile')} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-        <div style={{ fontWeight: 300, fontSize: 20, color: 'var(--text-muted)', lineHeight: 1 }}>←</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
-          DOCUMENTS
-        </div>
-      </div>
+    <Screen>
+      <BackTitle onBack={() => navigate('/profile')}>
+        DOCUMENTS
+      </BackTitle>
       <div style={{ display: 'flex', gap: 7, marginTop: 20 }}>
         {FILTERS.map((f, i) => (
           <div
@@ -37,15 +35,13 @@ export default function StatementsScreen() {
         ))}
       </div>
 
-      <div style={{ marginTop: 24, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        2026
-      </div>
+      <Eyebrow top={24}>2026</Eyebrow>
       {documents.map((doc) => (
         <div key={doc.title} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid var(--border-default)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 34, height: 42, background: 'var(--bone-panel)', border: '1px solid var(--border-default)', borderRadius: 3, flex: 'none' }} />
             <div>
-              <div style={{ fontWeight: 400, fontSize: 13, color: 'var(--text-heading)' }}>{doc.title}</div>
+              <ItemTitle size={13}>{doc.title}</ItemTitle>
               <div style={{ marginTop: 4, fontWeight: 300, fontSize: 11, color: 'var(--text-faint)' }}>{doc.meta}</div>
             </div>
           </div>
@@ -55,7 +51,7 @@ export default function StatementsScreen() {
         </div>
       ))}
 
-      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <Stack top={20}>
         <div
           style={{
             background: 'var(--surface-card)',
@@ -70,30 +66,19 @@ export default function StatementsScreen() {
           }}
         >
           <div>
-            <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>Custom statement</div>
-            <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>Pick a date range and accounts</div>
+            <ItemTitle>Custom statement</ItemTitle>
+            <ItemMeta>Pick a date range and accounts</ItemMeta>
           </div>
           <div style={{ fontWeight: 300, fontSize: 15, color: 'var(--text-muted)' }}>→</div>
         </div>
-        <div
-          style={{
-            background: 'var(--surface-card)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 8,
-            padding: '17px 20px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            boxShadow: 'var(--shadow-sm)',
-          }}
-        >
+        <Card padding="17px 20px" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>Email monthly statements</div>
-            <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{user?.email}</div>
+            <ItemTitle>Email monthly statements</ItemTitle>
+            <ItemMeta>{user?.email}</ItemMeta>
           </div>
           <Toggle on={emailStatements} onClick={toggleEmailStatements} />
-        </div>
-      </div>
+        </Card>
+      </Stack>
 
       <div style={{ marginTop: 22 }}>
         <Button
@@ -111,6 +96,6 @@ export default function StatementsScreen() {
       <div style={{ marginTop: 14, textAlign: 'center', fontWeight: 300, fontSize: 11, lineHeight: 1.6, color: 'var(--text-faint)' }}>
         Issued by Nomad Ventures LLP. Settled transactions only.
       </div>
-    </div>
+    </Screen>
   );
 }

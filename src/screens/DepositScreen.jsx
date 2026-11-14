@@ -6,6 +6,7 @@ import { withdrawDestinations as rails } from '../data/mockData';
 import { fmt, ksh, fromMinor } from '../utils/format';
 import { useMoney } from '../hooks/useMoney';
 import { useAccounts } from '../hooks/useAccounts';
+import { BackTitle, Eyebrow, ItemMeta, ItemTitle, Screen, Stack } from '../components/ui';
 
 const PRESETS = [5000, 20000, 50000];
 
@@ -41,8 +42,8 @@ function RadioRow({ title, meta, selected, onClick }) {
       }}
     >
       <div>
-        <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>{title}</div>
-        <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{meta}</div>
+        <ItemTitle>{title}</ItemTitle>
+        <ItemMeta>{meta}</ItemMeta>
       </div>
       <div
         style={{
@@ -110,18 +111,13 @@ export default function DepositScreen() {
   }
 
   return (
-    <div style={{ padding: '0 22px 28px' }}>
-      <div onClick={() => navigate('/home')} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-        <div style={{ fontWeight: 300, fontSize: 19, color: 'var(--text-muted)', lineHeight: 1 }}>✕</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
-          ADD MONEY
-        </div>
-      </div>
+    <Screen>
+      <BackTitle onBack={() => navigate('/home')} close>
+        ADD MONEY
+      </BackTitle>
 
-      <div style={{ marginTop: 24, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        To
-      </div>
-      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <Eyebrow top={24}>To</Eyebrow>
+      <Stack top={10}>
         {goal && (
           <RadioRow
             title={goal.name}
@@ -147,11 +143,9 @@ export default function DepositScreen() {
             onClick={() => setAccountId(g.id)}
           />
         ))}
-      </div>
+      </Stack>
 
-      <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        Amount
-      </div>
+      <Eyebrow top={26}>Amount</Eyebrow>
       <div style={{ marginTop: 12, paddingBottom: 12, borderBottom: '1.5px solid var(--ink-green)', display: 'flex', alignItems: 'baseline', gap: 10 }}>
         <span style={{ fontWeight: 300, fontSize: 15, color: 'var(--text-muted)' }}>UGX</span>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 30, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>{fmt(amount)}</span>
@@ -164,14 +158,12 @@ export default function DepositScreen() {
         ))}
       </div>
 
-      <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        From
-      </div>
-      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <Eyebrow top={26}>From</Eyebrow>
+      <Stack>
         {rails.map((r) => (
           <RadioRow key={r.id} title={r.label} meta={r.meta} selected={rail === r.id} onClick={() => setRail(r.id)} />
         ))}
-      </div>
+      </Stack>
 
       <div
         style={{
@@ -195,6 +187,6 @@ export default function DepositScreen() {
           {submitting ? 'Adding…' : `Add ${ksh(amount)}`}
         </Button>
       </div>
-    </div>
+    </Screen>
   );
 }

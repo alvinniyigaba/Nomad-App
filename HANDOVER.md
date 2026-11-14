@@ -194,6 +194,28 @@ typing (deposit/withdraw keypad and confirm button, the yield calculator's
 expanded inputs) deliberately stay visible. Any new screen showing a
 balance should use `useMoney()`, not `fmt`/`ksh` directly.
 
+## Shared screen components (`src/components/ui/`)
+
+Screens used to repeat the same inline styles (30–50 per screen). The
+recurring pieces now live once in `src/components/ui/` and screens import
+them from `../components/ui`:
+
+| Component | What it is |
+|---|---|
+| `Screen` | the padded page body every screen starts with |
+| `ScreenTitle`, `BackTitle` | the Cinzel title; `BackTitle` adds the ← (or ✕ with `close`) that leaves the screen |
+| `Eyebrow` | small uppercase tracked label (`tone="ink"` on dark cards, `top`/`bottom` for spacing) |
+| `Amount` | the 32px headline figure |
+| `ItemTitle`, `ItemMeta` | title and supporting line of a card or list row |
+| `ActionLabel` | tracked action word (VIEW, FUND, OPEN) |
+| `Card`, `InkCard` | the light card and the ink-green hero card with terrain |
+| `TerrainBackdrop`, `Stack`, `ProgressBar` | terrain layer behind content, even-gap list, thin progress bar |
+
+Rule of thumb: if a style block appears on a second screen, it belongs
+here, not inline. One-off layout (a specific flex row, a margin) stays
+inline in the screen. The refactor that introduced these changed no
+visuals: every screen renders the same elements with the same styles.
+
 ## Known gaps / unfinished business
 
 - **Confirm Mansa X actually landed in production.** It was seeded

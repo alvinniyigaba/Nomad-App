@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Badge from '../components/ds/Badge';
-import TerrainPattern from '../components/ds/TerrainPattern';
 import YieldCalculator from '../components/YieldCalculator';
 import { fromMinor, pct, formatFullDate } from '../utils/format';
 import { useMoney } from '../hooks/useMoney';
 import HideBalancesButton from '../components/HideBalancesButton';
 import { useExternalHoldings } from '../hooks/useExternalHoldings';
 import { buildPortfolioSeries, ytdChangeMinor, chartPolylinePoints, positionInvestedMinor } from '../utils/investmentSeries';
+import { ActionLabel, Amount, Eyebrow, Screen, ScreenTitle, Stack, TerrainBackdrop } from '../components/ui';
 
 const RANGES = ['1M', '6M', 'YTD', 'ALL'];
 const PRODUCT_TYPE_LABEL = { savings: 'Savings account', fixed_deposit: 'Fixed deposit', investment: 'Investment', other: 'Other product' };
@@ -32,9 +32,7 @@ function HoldingCard({ title, meta, value, footer, dashed, ink, badge, details }
       }}
     >
       {ink && (
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <TerrainPattern theme="ink" width={360} height={160} />
-        </div>
+        <TerrainBackdrop theme="ink" width={360} height={160} />
       )}
       <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
         <div>
@@ -87,7 +85,7 @@ function HoldingCard({ title, meta, value, footer, dashed, ink, badge, details }
         >
           {details.map((d) => (
             <div key={d.label} style={d.wide ? { gridColumn: '1 / -1' } : undefined}>
-              <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--taupe-on-ink)' }}>{d.label}</div>
+              <Eyebrow tone="ink" tracking="0.14em">{d.label}</Eyebrow>
               <div style={{ marginTop: 4, fontWeight: 400, fontSize: 13, lineHeight: 1.5, color: 'var(--text-on-ink)' }}>{d.value}</div>
             </div>
           ))}
@@ -123,22 +121,16 @@ export default function InvestScreen() {
   }
 
   return (
-    <div style={{ padding: '0 22px 28px' }}>
+    <Screen>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
-          INVESTMENTS
-        </div>
+        <ScreenTitle>INVESTMENTS</ScreenTitle>
         <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
           <HideBalancesButton />
-          <div onClick={() => navigate('/statements')} style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)', cursor: 'pointer' }}>
-            LETTERS
-          </div>
+          <ActionLabel onClick={() => navigate('/statements')}>LETTERS</ActionLabel>
         </div>
       </div>
 
-      <div style={{ marginTop: 22, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>
-        {ksh(fromMinor(totalMinor))}
-      </div>
+      <Amount top={22}>{ksh(fromMinor(totalMinor))}</Amount>
       <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'baseline' }}>
         <span style={{ fontWeight: 500, fontSize: 13, color: ytdChange >= 0 ? 'var(--success)' : 'var(--accent-clay)' }}>
           {ytdChange >= 0 ? '+' : ''}
@@ -148,9 +140,7 @@ export default function InvestScreen() {
       </div>
 
       <div style={{ marginTop: 20, height: 132, background: 'var(--surface-panel)', borderRadius: 8, padding: 14, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <TerrainPattern theme="light" width={330} height={132} />
-        </div>
+        <TerrainBackdrop theme="light" width={330} height={132} />
         {points ? (
           <svg viewBox="0 0 330 104" preserveAspectRatio="none" style={{ position: 'relative', width: '100%', height: '100%', display: 'block' }}>
             <polyline points={points} fill="none" stroke="#1F4A47" strokeWidth="1.6" />
@@ -185,10 +175,8 @@ export default function InvestScreen() {
 
       {(nomadActive.length > 0 || nomadInvited.length > 0) && (
         <>
-          <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            Holdings
-          </div>
-          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Eyebrow top={26}>Holdings</Eyebrow>
+          <Stack>
             {nomadInvited.map((h) => (
               <HoldingCard key={h.id} title={h.providerName} meta={h.notes || 'Invitation open'} dashed badge="Invited" />
             ))}
@@ -214,16 +202,14 @@ export default function InvestScreen() {
                 />
               );
             })}
-          </div>
+          </Stack>
         </>
       )}
 
       {external.length > 0 && (
         <>
-          <div style={{ marginTop: 26, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            External
-          </div>
-          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Eyebrow top={26}>External</Eyebrow>
+          <Stack>
             {external.map((h) => {
               // Same fields as a Nomad card, but read from the holding itself —
               // an external holding has no snapshot history to derive them from.
@@ -249,11 +235,11 @@ export default function InvestScreen() {
                 />
               );
             })}
-          </div>
+          </Stack>
         </>
       )}
 
       <YieldCalculator holdings={nomadActive} />
-    </div>
+    </Screen>
   );
 }

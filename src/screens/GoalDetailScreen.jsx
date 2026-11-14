@@ -10,6 +10,7 @@ import { useMoney } from '../hooks/useMoney';
 import HideBalancesButton from '../components/HideBalancesButton';
 import { paceStatus } from '../utils/pacing';
 import { useAccounts } from '../hooks/useAccounts';
+import { ActionLabel, Amount, BackTitle, Card, Eyebrow, ItemMeta, ItemTitle, ProgressBar, Screen, Stack } from '../components/ui';
 
 const KIND_LABEL = { auto_save: 'Auto-save', topup: 'Top-up', interest: 'Interest', withdrawal: 'Withdrawal', adjustment: 'Adjustment' };
 
@@ -69,26 +70,19 @@ export default function GoalDetailScreen() {
   }
 
   return (
-    <div style={{ padding: '0 22px 28px' }}>
+    <Screen>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <div onClick={() => navigate('/save')} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-          <div style={{ fontWeight: 300, fontSize: 20, color: 'var(--text-muted)', lineHeight: 1 }}>←</div>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, letterSpacing: '0.14em', color: 'var(--text-heading)' }}>
-            {goal.name.toUpperCase()}
-          </div>
-        </div>
+        <BackTitle onBack={() => navigate('/save')}>
+          {goal.name.toUpperCase()}
+        </BackTitle>
         <HideBalancesButton />
       </div>
 
-      <div style={{ marginTop: 22, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '0.03em', color: 'var(--text-heading)' }}>
-        {ksh(balance)}
-      </div>
+      <Amount top={22}>{ksh(balance)}</Amount>
       <div style={{ marginTop: 8, fontWeight: 300, fontSize: 13, color: 'var(--text-muted)' }}>
         of {ksh(target)} · target {formatMonthYear(goal.targetDate)}
       </div>
-      <div style={{ marginTop: 18, height: 8, background: 'var(--bone-panel)', borderRadius: 4, overflow: 'hidden' }}>
-        <div style={{ width: Math.min(100, pace?.pctFunded ?? 0) + '%', height: 8, background: 'var(--ink-green)' }} />
-      </div>
+      <ProgressBar top={18} pct={Math.min(100, pace?.pctFunded ?? 0)} height={8} />
       <div style={{ marginTop: 9, display: 'flex', justifyContent: 'space-between', fontWeight: 300, fontSize: 11 }}>
         <span style={{ color: 'var(--text-muted)' }}>{pace?.pctFunded ?? 0}% funded</span>
         {pace?.behindMinor > 0 && <span style={{ color: 'var(--accent-clay)' }}>{ksh(pace.behindMinor / 100)} behind pace</span>}
@@ -97,22 +91,22 @@ export default function GoalDetailScreen() {
 
       <div style={{ marginTop: 22, display: 'flex', borderTop: '1px solid var(--border-default)', borderBottom: '1px solid var(--border-default)' }}>
         <div style={{ flex: 1, padding: '16px 0', borderRight: '1px solid var(--border-default)' }}>
-          <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Interest earned</div>
+          <Eyebrow tone="faint" tracking="0.18em">Interest earned</Eyebrow>
           <div style={{ marginTop: 7, fontWeight: 500, fontSize: 15, color: 'var(--text-heading)' }}>{ksh(interestEarned)}</div>
         </div>
         <div style={{ flex: 1, padding: '16px 0 16px 20px' }}>
-          <div style={{ fontWeight: 300, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>Rate</div>
+          <Eyebrow tone="faint" tracking="0.18em">Rate</Eyebrow>
           <div style={{ marginTop: 7, fontWeight: 500, fontSize: 15, color: 'var(--text-heading)' }}>{savingsRateLabel}</div>
         </div>
       </div>
 
       {goal.isGroup && (
-        <div style={{ marginTop: 20, background: 'var(--surface-card)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '18px 20px', boxShadow: 'var(--shadow-sm)' }}>
+        <Card padding="18px 20px" top={20}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>Group goal</div>
+            <ItemTitle>Group goal</ItemTitle>
             <Badge variant={goal.myRole === 'admin' ? 'solid' : 'outline'}>{goal.myRole === 'admin' ? 'You’re an admin' : 'Member'}</Badge>
           </div>
-          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Stack top={14}>
             {goal.members.map((m) => (
               <div key={m.username} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -122,60 +116,32 @@ export default function GoalDetailScreen() {
                 <span style={{ fontWeight: 500, fontSize: 13, color: 'var(--text-heading)' }}>{ksh(fromMinor(m.contributionMinor))}</span>
               </div>
             ))}
-          </div>
-        </div>
+          </Stack>
+        </Card>
       )}
 
-      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <Stack top={20}>
         {!goal.isGroup && (
-          <div
-            style={{
-              background: 'var(--surface-card)',
-              border: '1px solid var(--border-default)',
-              borderRadius: 8,
-              padding: '18px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
+          <Card padding="18px 20px" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>Auto-save</div>
-              <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>
-                {ksh(fromMinor(goal.autoSaveAmountMinor))} · day {goal.autoSaveDay} of the month · {goal.autoSaveRail}
-              </div>
+              <ItemTitle>Auto-save</ItemTitle>
+              <ItemMeta>{ksh(fromMinor(goal.autoSaveAmountMinor))} · day {goal.autoSaveDay} of the month · {goal.autoSaveRail}</ItemMeta>
             </div>
             <Toggle on={goal.autoSaveEnabled} onClick={savingAutoSave ? undefined : toggleAutoSave} />
-          </div>
+          </Card>
         )}
         {pledged > 0 && (
-          <div
-            onClick={() => navigate('/borrow')}
-            style={{
-              background: 'var(--surface-card)',
-              border: '1px solid var(--border-default)',
-              borderRadius: 8,
-              padding: '18px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              boxShadow: 'var(--shadow-sm)',
-              cursor: 'pointer',
-            }}
-          >
+          <Card padding="18px 20px" onClick={() => navigate('/borrow')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-heading)' }}>Pledged against loan</div>
-              <div style={{ marginTop: 5, fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>{ksh(pledged)} locked · still earning</div>
+              <ItemTitle>Pledged against loan</ItemTitle>
+              <ItemMeta>{ksh(pledged)} locked · still earning</ItemMeta>
             </div>
-            <div style={{ fontWeight: 500, fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-green)' }}>VIEW</div>
-          </div>
+            <ActionLabel>VIEW</ActionLabel>
+          </Card>
         )}
-      </div>
+      </Stack>
 
-      <div style={{ marginTop: 24, fontWeight: 300, fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        Activity
-      </div>
+      <Eyebrow top={24}>Activity</Eyebrow>
       {goal.activity.length === 0 && (
         <div style={{ padding: '15px 0', fontWeight: 300, fontSize: 12, color: 'var(--text-faint)' }}>Nothing yet.</div>
       )}
@@ -185,7 +151,7 @@ export default function GoalDetailScreen() {
         return (
           <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 0', borderBottom: '1px solid var(--border-default)' }}>
             <div>
-              <div style={{ fontWeight: 400, fontSize: 13, color: 'var(--text-heading)' }}>{entry.memo ?? KIND_LABEL[entry.kind]}</div>
+              <ItemTitle size={13}>{entry.memo ?? KIND_LABEL[entry.kind]}</ItemTitle>
               <div style={{ marginTop: 4, fontWeight: 300, fontSize: 11, color: 'var(--text-faint)' }}>
                 {formatDayMonth(entry.createdAt)}
                 {entry.rail ? ` · ${entry.rail}` : ''}
@@ -220,6 +186,6 @@ export default function GoalDetailScreen() {
           {closeError && <div style={{ marginTop: 8, fontWeight: 400, fontSize: 12, color: 'var(--accent-clay)' }}>{closeError}</div>}
         </div>
       )}
-    </div>
+    </Screen>
   );
 }
