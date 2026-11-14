@@ -53,5 +53,5 @@ export function useJourney() {
 
   const refetch = () => parts.forEach((p) => p.refetch());
 
-  return { status, error: failed?.error ?? null, refetch, model, accounts: accounts.accounts, holdings: holdings.holdings };
+  return { status, error: failed?.error ?? null, refetch, model, accounts: accounts.accounts, holdings: holdings.holdings, loans: loans.loans, loanTotals: loans.totals };
 }
