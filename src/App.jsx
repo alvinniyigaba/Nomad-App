@@ -19,6 +19,7 @@ import KycScreen from './screens/KycScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import JourneyHomeScreen from './screens/journey/JourneyHomeScreen';
 import JourneyInvestScreen from './screens/journey/JourneyInvestScreen';
+import JourneySaveScreen from './screens/journey/JourneySaveScreen';
 import JourneyScreen from './screens/journey/JourneyScreen';
 import TrailScreen from './screens/journey/TrailScreen';
 import BalanceSheetScreen from './screens/journey/BalanceSheetScreen';
@@ -63,9 +64,7 @@ function AppRoutes() {
         path="/save"
         element={
           <RequireAuth>
-            <AppShell>
-              <SavingsScreen />
-            </AppShell>
+            <JourneyPreview preview={<JourneySaveScreen />} fallback={<SavingsScreen />} />
           </RequireAuth>
         }
       />
