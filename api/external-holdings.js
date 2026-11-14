@@ -17,6 +17,7 @@ function serialize(row, history) {
     startDate: row.start_date,
     investedMinor: row.invested_minor?.toString() ?? null,
     status: row.status,
+    sector: row.sector ?? null,
     updatedAt: row.updated_at,
     // Only populated for managedBy: 'nomad' holdings — current value and
     // YTD change are derived from this, not stored, same as the ledger.

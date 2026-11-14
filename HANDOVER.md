@@ -216,6 +216,70 @@ here, not inline. One-off layout (a specific flex row, a margin) stays
 inline in the screen. The refactor that introduced these changed no
 visuals: every screen renders the same elements with the same styles.
 
+## Journey preview (stage, balance sheet, spread)
+
+A second look and a new set of screens, on for named members only while
+it is tried out. Everyone else sees exactly the app as before.
+
+**Who sees it.** `api/_lib/features.js`: the `JOURNEY_PREVIEW_USERS` env var
+(comma-separated usernames, or `*` for everyone). Unset, it is on for
+`niyigaba` alone. The session payload carries `user.features.journey`;
+`App.jsx` (`JourneyPreview`) swaps Home and Invest and opens `/journey`,
+`/trail` and `/balance-sheet` for those members, and `api/journey.js`
+checks again server-side. To add a tester, set the env var in Vercel and
+redeploy: no code change.
+
+**What a member's stage is made of.** Nothing is stored. `utils/journeyModel.js`
+derives everything from the accounts, holdings, loans and journey endpoints:
+
+- *Independence* = passive income ÷ day-to-day costs (`utils/independence.js`).
+  Passive income is each holding's value at its rate on record (a
+  projection, labelled so on screen) plus passive income Nomad recorded.
+- *Runway* = liquid fund ÷ monthly costs.
+- *Stage* (`utils/placement.js`): the balance sheet decides when costs are
+  on record; age is only a starting point until then; a Nomad override
+  beats both. The seven stages and their stories are in `data/archetypes.js`.
+- *Spread* (`utils/spread.js`): savings and investments by the currency
+  each is held in (home / region / world), and holdings by sector.
+
+Every threshold (stage cut-offs, next-level targets, spread guide ranges)
+is in `src/config/journeyRules.js` and is **provisional**: none has been
+set by an investment committee. `npm test` covers this logic.
+
+**Entering a member's costs and income** (admin only for now; the member's
+"Add a cost or income" button is shown but switched off):
+
+```
+POST /api/admin?resource=member-finances&token=…
+{ "username": "niyigaba",
+  "expenses": [{ "category": "rent", "amountMinor": 80000000, "frequency": "monthly", "effectiveFrom": "2026-11-01" }],
+  "income":   [{ "label": "Salary", "kind": "active", "amountMinor": 480000000, "frequency": "monthly", "effectiveFrom": "2026-11-01" }] }
+```
+
+Categories: household, rent, school_fees, medical, transport, other.
+Frequencies: monthly, termly (three a year), yearly. Amounts are minor
+units (UGX × 100). Rows are append-only: to change a figure post a new row
+with a later `effectiveFrom`; `amountMinor: 0` retires it. `"stage": "elder"`
+overrides a member's stage, `"stage": null` lifts the override. `GET` with
+`?username=` shows everything on record.
+
+**Sector.** `external_holdings.sector` feeds the "By sector" card on Invest.
+Add a column headed `Sector` to a member's Investments sheet and the daily
+sync fills it; a blank cell clears it. It is the only column the sync finds
+by name: **add it to the right of the existing columns, never between
+them**, because the others are read by position.
+
+**New tables** (all additive, in `db/schema.sql`): `member_expenses`,
+`member_income`, `archetype_placements`, plus the `sector` column. Until
+`resource=migrate` has been run, `api/journey.js` answers "nothing on
+record" rather than failing, so the code can deploy first.
+
+**Look.** The preview's rounder components are in `components/ui/Forward.jsx`
+(ink header, soft cards, pill buttons, route bar), with `Icon.jsx` and
+`StageTerrain.jsx` (a contour pattern per stage). Screens not yet moved
+over (Save, Borrow and the rest) still use the hairline `Card` family, so
+a preview member sees both looks for now.
+
 ## Known gaps / unfinished business
 
 - **Confirm Mansa X actually landed in production.** It was seeded

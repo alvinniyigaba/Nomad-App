@@ -209,3 +209,59 @@ CREATE TABLE IF NOT EXISTS loan_repayments (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS loan_repayments_loan_id_idx ON loan_repayments(loan_id, paid_on);
+
+-- ── Journey (stage, balance sheet, spread) ────────────────────────────────
+-- Everything below is additive: new tables and one new nullable column.
+-- Nothing existing is altered or dropped.
+
+-- The sector a holding belongs to (MMF, REITs, real estate, …), for the
+-- "by sector" summary on Invest. Free text on purpose: the list is Nomad's
+-- to grow from the sheet's "Sector" column without a schema change. NULL
+-- means not labelled yet.
+ALTER TABLE external_holdings ADD COLUMN IF NOT EXISTS sector text;
+
+-- A member's day-to-day costs, as category totals only: never who a cost
+-- is for. Append-only, like the ledger: a change is a new row, and the
+-- row with the latest effective_from per (user, category) is the current
+-- figure (ties broken by created_at). An amount of 0 retires a category.
+-- Admin-entered for now (api/admin resource=member-finances).
+CREATE TABLE IF NOT EXISTS member_expenses (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  category text NOT NULL CHECK (category IN ('household', 'rent', 'school_fees', 'medical', 'transport', 'other')),
+  amount_minor bigint NOT NULL CHECK (amount_minor >= 0),
+  frequency text NOT NULL CHECK (frequency IN ('monthly', 'termly', 'yearly')),
+  effective_from date NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS member_expenses_user_id_idx ON member_expenses(user_id, category, effective_from);
+
+-- Income the app can't see for itself (salary, a business, rent received).
+-- Same append-only shape as member_expenses; the latest row per
+-- (user, label) is current. kind='passive' counts toward financial
+-- independence, kind='active' doesn't. Income from holdings is not stored
+-- here: it is derived from the holdings themselves.
+CREATE TABLE IF NOT EXISTS member_income (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind text NOT NULL CHECK (kind IN ('active', 'passive')),
+  label text NOT NULL,
+  amount_minor bigint NOT NULL CHECK (amount_minor >= 0),
+  frequency text NOT NULL CHECK (frequency IN ('monthly', 'termly', 'yearly')),
+  effective_from date NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS member_income_user_id_idx ON member_income(user_id, label, effective_from);
+
+-- A member's stage is derived from their balance sheet, never stored. This
+-- table only records the times Nomad overrode that: the latest row wins,
+-- and a row with archetype NULL lifts the override. Append-only, so the
+-- history of a member's placement stays.
+CREATE TABLE IF NOT EXISTS archetype_placements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  archetype text CHECK (archetype IN ('tracker', 'herder', 'caravaneer', 'kin_keeper', 'granary_keeper', 'rain_reader', 'elder')),
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS archetype_placements_user_id_idx ON archetype_placements(user_id, created_at);

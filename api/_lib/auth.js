@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { query } from './db.js';
+import { journeyEnabled } from './features.js';
 
 const COOKIE_NAME = 'nomad_session';
 const SESSION_DAYS = 30;
@@ -126,5 +127,8 @@ export function publicUser(session) {
     address: session.address,
     nextOfKinName: session.next_of_kin_name,
     nextOfKinPhone: session.next_of_kin_phone,
+    // Previews this member is in. The client reads these to decide which
+    // screens to show; the endpoints behind them check again server-side.
+    features: { journey: journeyEnabled(session.username) },
   };
 }
