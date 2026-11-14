@@ -18,6 +18,7 @@ import StatementsScreen from './screens/StatementsScreen';
 import KycScreen from './screens/KycScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import JourneyHomeScreen from './screens/journey/JourneyHomeScreen';
+import JourneyBorrowScreen from './screens/journey/JourneyBorrowScreen';
 import JourneyInvestScreen from './screens/journey/JourneyInvestScreen';
 import JourneySaveScreen from './screens/journey/JourneySaveScreen';
 import JourneyScreen from './screens/journey/JourneyScreen';
@@ -82,9 +83,7 @@ function AppRoutes() {
         path="/borrow"
         element={
           <RequireAuth>
-            <AppShell>
-              <BorrowScreen />
-            </AppShell>
+            <JourneyPreview preview={<JourneyBorrowScreen />} fallback={<BorrowScreen />} />
           </RequireAuth>
         }
       />
