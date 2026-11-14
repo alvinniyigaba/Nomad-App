@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppStateProvider, useAppState } from './state/AppStateContext';
+import { StageProvider } from './state/StageContext';
 import AppShell from './components/AppShell';
 import SplashScreen from './screens/SplashScreen';
 import LoginGate from './screens/LoginGate';
@@ -16,6 +17,11 @@ import PositionSummaryScreen from './screens/PositionSummaryScreen';
 import StatementsScreen from './screens/StatementsScreen';
 import KycScreen from './screens/KycScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import JourneyHomeScreen from './screens/journey/JourneyHomeScreen';
+import JourneyInvestScreen from './screens/journey/JourneyInvestScreen';
+import JourneyScreen from './screens/journey/JourneyScreen';
+import TrailScreen from './screens/journey/TrailScreen';
+import BalanceSheetScreen from './screens/journey/BalanceSheetScreen';
 
 function RequireAuth({ children }) {
   const { authStatus } = useAppState();
@@ -24,6 +30,18 @@ function RequireAuth({ children }) {
   }
   if (authStatus !== 'authenticated') return <Navigate to="/login" replace />;
   return children;
+}
+
+/**
+ * A route that differs for members in the journey preview. They get
+ * `preview` (full-width, under its own ink header); everyone else gets
+ * `fallback` in the standard shell, or is sent home when a screen exists
+ * only in the preview. Must sit inside RequireAuth, so `user` is loaded.
+ */
+function JourneyPreview({ preview, fallback = null }) {
+  const { user } = useAppState();
+  if (user?.features?.journey) return <AppShell flush>{preview}</AppShell>;
+  return fallback ? <AppShell>{fallback}</AppShell> : <Navigate to="/home" replace />;
 }
 
 function AppRoutes() {
@@ -37,9 +55,7 @@ function AppRoutes() {
         path="/home"
         element={
           <RequireAuth>
-            <AppShell>
-              <HomeScreen />
-            </AppShell>
+            <JourneyPreview preview={<JourneyHomeScreen />} fallback={<HomeScreen />} />
           </RequireAuth>
         }
       />
@@ -87,9 +103,7 @@ function AppRoutes() {
         path="/invest"
         element={
           <RequireAuth>
-            <AppShell>
-              <InvestScreen />
-            </AppShell>
+            <JourneyPreview preview={<JourneyInvestScreen />} fallback={<InvestScreen />} />
           </RequireAuth>
         }
       />
@@ -164,6 +178,31 @@ function AppRoutes() {
         }
       />
 
+      <Route
+        path="/journey"
+        element={
+          <RequireAuth>
+            <JourneyPreview preview={<JourneyScreen />} />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/trail"
+        element={
+          <RequireAuth>
+            <JourneyPreview preview={<TrailScreen />} />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/balance-sheet"
+        element={
+          <RequireAuth>
+            <JourneyPreview preview={<BalanceSheetScreen />} />
+          </RequireAuth>
+        }
+      />
+
       <Route path="*" element={<Navigate to="/splash" replace />} />
     </Routes>
   );
@@ -172,9 +211,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <AppStateProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <StageProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </StageProvider>
     </AppStateProvider>
   );
 }

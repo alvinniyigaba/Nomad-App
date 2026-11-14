@@ -44,7 +44,11 @@
 // UPDATE, so re-running the same day is safe. External (non-Nomad) rows
 // also get balance_minor set from Est. Worth, since that's the field the
 // app reads for them. Every row's start_date and invested_minor are
-// refreshed from Start Date / Net Invested. Runs daily via Vercel Cron.
+// refreshed from Start Date / Net Invested. A "Sector" column, if the
+// sheet has one, sets each holding's sector; it is the only column found
+// by header name — the rest are read by position, so it must be added to
+// the right of the existing columns, never between them. Runs daily via
+// Vercel Cron.
 //
 // resource=accounts (GET): read-only, a user's own accounts and any group
 // accounts they belong to, with derived balances (and member lists for
@@ -92,6 +96,10 @@
 // ({ loanId, amountMinor, paidOn, memo?, idempotencyKey? }). Append-only;
 // a mistake is corrected with a negative amount. Outstanding is always
 // derived as principal minus repayments.
+//
+// resource=member-finances (GET ?username / POST): a member's day-to-day
+// costs, declared income and any stage override — what their journey
+// screens are derived from. Append-only; see handleMemberFinances.
 import { readFileSync } from 'fs';
 import bcrypt from 'bcryptjs';
 import { db, query, withTransaction } from '../_lib/db.js';
@@ -169,6 +177,17 @@ function validateStartAndInvested(startDate, investedMinor) {
   return null;
 }
 
+/**
+ * Sets a holding's sector when the caller sent one. A separate statement on
+ * purpose: creating or editing a holding without a sector never touches the
+ * sector column, so it keeps working on a database that doesn't have it yet.
+ */
+async function withSector(holding, sector) {
+  if (typeof sector !== 'string') return holding;
+  const { rows } = await query('UPDATE external_holdings SET sector = $2, updated_at = now() WHERE id = $1 RETURNING *', [holding.id, sector.trim() || null]);
+  return rows[0];
+}
+
 async function handleExternalHoldings(req, res) {
   if (req.method === 'GET') {
     const { username } = req.query;
@@ -190,7 +209,7 @@ async function handleExternalHoldings(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { username, providerName, productType, balanceMinor, interestRateBps, termMonths, maturityDate, notes, managedBy, status, investmentCurrency, startDate, investedMinor } = req.body ?? {};
+    const { username, providerName, productType, balanceMinor, interestRateBps, termMonths, maturityDate, notes, managedBy, status, investmentCurrency, startDate, investedMinor, sector } = req.body ?? {};
     if (typeof username !== 'string' || typeof providerName !== 'string' || !providerName.trim()) {
       return res.status(400).json({ error: 'username and providerName are required' });
     }
@@ -213,11 +232,11 @@ async function handleExternalHoldings(req, res) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9,'external'),COALESCE($10,'active'),$11,$12,$13) RETURNING *`,
       [userId, providerName.trim(), productType, balanceMinor ?? null, interestRateBps ?? null, termMonths ?? null, maturityDate ?? null, notes ?? null, managedBy ?? null, status ?? null, investmentCurrency ?? null, startDate ?? null, investedMinor ?? null],
     );
-    return res.status(200).json({ ok: true, holding: rows[0] });
+    return res.status(200).json({ ok: true, holding: await withSector(rows[0], sector) });
   }
 
   if (req.method === 'PATCH') {
-    const { id, providerName, productType, balanceMinor, interestRateBps, termMonths, maturityDate, notes, managedBy, status, investmentCurrency, snapshotDate, snapshotValueMinor, startDate, investedMinor } = req.body ?? {};
+    const { id, providerName, productType, balanceMinor, interestRateBps, termMonths, maturityDate, notes, managedBy, status, investmentCurrency, snapshotDate, snapshotValueMinor, startDate, investedMinor, sector } = req.body ?? {};
     if (typeof id !== 'string') return res.status(400).json({ error: 'id is required' });
     const invalid = validateStartAndInvested(startDate, investedMinor);
     if (invalid) return res.status(400).json({ error: invalid });
@@ -255,7 +274,7 @@ async function handleExternalHoldings(req, res) {
       [id, providerName ?? null, productType ?? null, balanceMinor ?? null, interestRateBps ?? null, termMonths ?? null, maturityDate ?? null, notes ?? null, managedBy ?? null, status ?? null, investmentCurrency ?? null, startDate ?? null, investedMinor ?? null],
     );
     if (!rows[0]) return res.status(404).json({ error: 'No such holding' });
-    return res.status(200).json({ ok: true, holding: rows[0] });
+    return res.status(200).json({ ok: true, holding: await withSector(rows[0], sector) });
   }
 
   if (req.method === 'DELETE') {
@@ -673,6 +692,10 @@ async function syncInvestmentsForUser(username, csvUrl, results) {
   }
 
   const today = new Date().toISOString().slice(0, 10);
+  // Optional column, found by its header rather than its position so it
+  // can sit anywhere to the right of the fixed columns read below. A sheet
+  // without it leaves each holding's sector untouched.
+  const sectorIdx = rows[headerIdx].findIndex((c) => (c || '').trim().toLowerCase() === 'sector');
 
   for (const row of rows.slice(headerIdx + 1)) {
     const [startDate, vehicle, investmentCurrency, , , netInvestedStr, tRateStr, , estWorthStr, tcdStr, key] = row;
@@ -740,6 +763,16 @@ async function syncInvestmentsForUser(username, csvUrl, results) {
     if (managedBy === 'external') {
       await query('UPDATE external_holdings SET balance_minor = $2, updated_at = now() WHERE id = $1', [holdingId, Math.round(estWorth * 100)]);
     }
+    // The sheet is the source of truth for sector too: a blank cell clears
+    // it. Kept as its own statement so a database that hasn't had the
+    // sector column added yet reports that, without losing the row's sync.
+    if (sectorIdx !== -1) {
+      try {
+        await query('UPDATE external_holdings SET sector = $2 WHERE id = $1', [holdingId, row[sectorIdx]?.trim() || null]);
+      } catch (err) {
+        results.errors.push({ username, vehicle: providerName, error: `Could not save sector: ${err.message}` });
+      }
+    }
     results.synced++;
   }
 }
@@ -785,6 +818,82 @@ async function handlePostEntries(req, res) {
   return res.status(200).json({ ok: true, ...results });
 }
 
+const EXPENSE_CATEGORIES = ['household', 'rent', 'school_fees', 'medical', 'transport', 'other'];
+const FREQUENCIES = ['monthly', 'termly', 'yearly'];
+const ARCHETYPES = ['tracker', 'herder', 'caravaneer', 'kin_keeper', 'granary_keeper', 'rain_reader', 'elder'];
+
+/** Shared by expense and income rows. Returns an error string, or null when the row is well-formed. */
+function validateFinanceRow({ amountMinor, frequency, effectiveFrom }) {
+  if (!Number.isInteger(Number(amountMinor)) || Number(amountMinor) < 0) return 'amountMinor must be a whole number of minor units, 0 or more';
+  if (!FREQUENCIES.includes(frequency)) return `frequency must be one of ${FREQUENCIES.join(', ')}`;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom ?? '')) return 'effectiveFrom must be YYYY-MM-DD';
+  return null;
+}
+
+/**
+ * resource=member-finances: what Nomad records about a member's day-to-day
+ * costs, declared income and stage — the inputs to their journey screens.
+ * GET ?username= returns every row on record (history included).
+ * POST { username, expenses?: [{category, amountMinor, frequency, effectiveFrom}],
+ *        income?: [{label, kind, amountMinor, frequency, effectiveFrom}],
+ *        stage?: <archetype> | null, note? }
+ * appends rows; nothing is ever edited. To change a figure post a new row
+ * (the latest effectiveFrom wins); amountMinor 0 retires it. `stage`
+ * overrides the derived stage; null lifts the override. All rows in one
+ * call are written together or not at all.
+ */
+async function handleMemberFinances(req, res) {
+  const username = req.method === 'GET' ? req.query.username : req.body?.username;
+  if (typeof username !== 'string' || !username.trim()) return res.status(400).json({ error: 'username is required' });
+  const userId = await resolveUserId(username.trim().toLowerCase());
+  if (!userId) return res.status(404).json({ error: 'No such user' });
+
+  if (req.method === 'GET') {
+    const [expenses, income, placements] = await Promise.all([
+      query('SELECT category, amount_minor, frequency, effective_from, created_at FROM member_expenses WHERE user_id = $1 ORDER BY category, effective_from DESC, created_at DESC', [userId]),
+      query('SELECT label, kind, amount_minor, frequency, effective_from, created_at FROM member_income WHERE user_id = $1 ORDER BY label, effective_from DESC, created_at DESC', [userId]),
+      query('SELECT archetype, note, created_at FROM archetype_placements WHERE user_id = $1 ORDER BY created_at DESC', [userId]),
+    ]);
+    return res.status(200).json({ expenses: expenses.rows, income: income.rows, placements: placements.rows });
+  }
+
+  if (req.method === 'POST') {
+    const { expenses = [], income = [], note } = req.body;
+    const hasStage = Object.prototype.hasOwnProperty.call(req.body, 'stage');
+    const { stage } = req.body;
+    if (!Array.isArray(expenses) || !Array.isArray(income)) return res.status(400).json({ error: 'expenses and income must be arrays' });
+    if (expenses.length === 0 && income.length === 0 && !hasStage) return res.status(400).json({ error: 'Nothing to record: send expenses, income or stage' });
+
+    for (const [i, e] of expenses.entries()) {
+      if (!EXPENSE_CATEGORIES.includes(e?.category)) return res.status(400).json({ error: `expenses[${i}]: category must be one of ${EXPENSE_CATEGORIES.join(', ')}` });
+      const invalid = validateFinanceRow(e);
+      if (invalid) return res.status(400).json({ error: `expenses[${i}]: ${invalid}` });
+    }
+    for (const [i, inc] of income.entries()) {
+      if (typeof inc?.label !== 'string' || !inc.label.trim()) return res.status(400).json({ error: `income[${i}]: label is required` });
+      if (!['active', 'passive'].includes(inc.kind)) return res.status(400).json({ error: `income[${i}]: kind must be active or passive` });
+      const invalid = validateFinanceRow(inc);
+      if (invalid) return res.status(400).json({ error: `income[${i}]: ${invalid}` });
+    }
+    if (hasStage && stage !== null && !ARCHETYPES.includes(stage)) return res.status(400).json({ error: `stage must be null or one of ${ARCHETYPES.join(', ')}` });
+
+    await withTransaction(async (client) => {
+      for (const e of expenses) {
+        await client.query('INSERT INTO member_expenses (user_id, category, amount_minor, frequency, effective_from) VALUES ($1,$2,$3,$4,$5)', [userId, e.category, Number(e.amountMinor), e.frequency, e.effectiveFrom]);
+      }
+      for (const inc of income) {
+        await client.query('INSERT INTO member_income (user_id, kind, label, amount_minor, frequency, effective_from) VALUES ($1,$2,$3,$4,$5,$6)', [userId, inc.kind, inc.label.trim(), Number(inc.amountMinor), inc.frequency, inc.effectiveFrom]);
+      }
+      if (hasStage) {
+        await client.query('INSERT INTO archetype_placements (user_id, archetype, note) VALUES ($1,$2,$3)', [userId, stage, typeof note === 'string' ? note : null]);
+      }
+    });
+    return res.status(200).json({ ok: true, recorded: { expenses: expenses.length, income: income.length, stage: hasStage } });
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+
 function isAuthorized(req) {
   if (process.env.ADMIN_TOKEN && req.query.token === process.env.ADMIN_TOKEN) return true;
   const authHeader = req.headers.authorization || '';
@@ -809,6 +918,7 @@ export default async function handler(req, res) {
   if (req.query.resource === 'reset-credentials') return handleResetCredentials(req, res);
   if (req.query.resource === 'loans') return handleLoans(req, res);
   if (req.query.resource === 'loan-repayments') return handleLoanRepayments(req, res);
+  if (req.query.resource === 'member-finances') return handleMemberFinances(req, res);
   return res.status(400).json({
     error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, login-stats, reset-credentials, loans, or loan-repayments',
   });

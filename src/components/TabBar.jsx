@@ -1,11 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import { TABS } from '../config/tabs';
 
-const TABS = [
-  { label: 'HOME', path: '/home', match: ['/home'] },
-  { label: 'SAVE', path: '/save', match: ['/save', '/save/goal'] },
-  { label: 'BORROW', path: '/borrow', match: ['/borrow', '/loan'] },
-  { label: 'INVEST', path: '/invest', match: ['/invest'] },
-];
 
 export default function TabBar() {
   const { pathname } = useLocation();
