@@ -1,15 +1,16 @@
 import { useNavigate } from 'react-router-dom';
 import HideBalancesButton from '../../components/HideBalancesButton';
 import { ErrorState, Loading } from '../../components/ScreenState';
-import { Eyebrow, InkHeader, ItemMeta, RouteBar, SoftCard, Stack, Tag } from '../../components/ui';
+import { Eyebrow, InkHeader, ItemMeta, ItemTitle, PillButton, RouteBar, SoftCard, Stack, Tag } from '../../components/ui';
 import { HOME_CURRENCY } from '../../config/journeyRules';
 import { useMoney } from '../../hooks/useMoney';
 import { formatFullDate, fromMinor } from '../../utils/format';
-import { LOAN_STATUS_BADGE } from '../../utils/loans';
+import { LOAN_STATUS_BADGE, loanPrompts, repaidShare as repaidShareOf } from '../../utils/loans';
 import { useJourneyScreen } from './useJourneyScreen';
 
 // Tag colours for loans that aren't simply open; labels come from LOAN_STATUS_BADGE.
 const STATUS_TAG = {
+  proposed: { background: 'var(--surface-panel)', color: 'var(--text-body)' },
   overdue: { background: 'var(--ochre-gold)', color: 'var(--earth-900)' },
   repaid: { background: 'var(--ink-green)', color: 'var(--text-on-ink)' },
   written_off: { background: 'var(--surface-panel)', color: 'var(--text-body)' },
@@ -17,9 +18,7 @@ const STATUS_TAG = {
 
 /** One loan: who, since when, what is still out, and how much has come back, drawn as the route. */
 function LoanCard({ loan, money, onOpen }) {
-  const principalMinor = Number(loan.principalMinor);
-  const repaidMinor = Number(loan.repaidMinor);
-  const repaidShare = principalMinor > 0 ? repaidMinor / principalMinor : 0;
+  const repaidShare = repaidShareOf(loan);
   const lent = loan.direction === 'lent';
   const since = loan.startDate ? `${lent ? 'Lent' : 'Borrowed'} ${formatFullDate(loan.startDate)}` : `${lent ? 'Lent' : 'Borrowed'} · date to confirm`;
   const badge = LOAN_STATUS_BADGE[loan.status];
@@ -37,7 +36,7 @@ function LoanCard({ loan, money, onOpen }) {
           ) : (
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 17, color: lent ? 'var(--text-heading)' : 'var(--accent-clay)' }}>{money.fmt(fromMinor(loan.outstandingMinor))}</div>
           )}
-          <div style={{ marginTop: 4, fontWeight: 300, fontSize: 11, color: 'var(--text-muted)' }}>of {money.fmt(fromMinor(loan.principalMinor))}</div>
+          <div style={{ marginTop: 4, fontWeight: 300, fontSize: 11, color: 'var(--text-muted)' }}>of {money.fmt(fromMinor(loan.totalDueMinor ?? loan.principalMinor))}</div>
         </div>
       </div>
       <div style={{ marginTop: 14 }}>
@@ -82,6 +81,7 @@ export default function JourneyBorrowScreen() {
   const oweMinor = Number(totals.youOweMinor);
   const netMinor = owedMinor - oweMinor;
   const open = (l) => navigate(`/loan?id=${l.id}`);
+  const prompts = loanPrompts(loans);
 
   return (
     <div style={{ paddingBottom: 28 }}>
@@ -112,10 +112,28 @@ export default function JourneyBorrowScreen() {
       </InkHeader>
 
       <div style={{ padding: '4px 22px 0' }}>
+        <PillButton variant="ink" icon="add" style={{ marginTop: 18, width: '100%' }} onClick={() => navigate('/loan/new')}>
+          New loan
+        </PillButton>
+
+        {prompts.length > 0 && (
+          <>
+            <Eyebrow top={22}>Waiting for you</Eyebrow>
+            <Stack gap={12}>
+              {prompts.map((p) => (
+                <SoftCard key={p.key} padding="15px 18px" onClick={() => navigate(`/loan?id=${p.loanId}`)} style={{ boxShadow: 'var(--shadow-sm)', border: '1px solid var(--ochre-gold)' }}>
+                  <ItemTitle size={15}>{p.title}</ItemTitle>
+                  <ItemMeta>{p.amountMinor ? `${money.ksh(fromMinor(p.amountMinor))} · ` : ''}{p.detail}</ItemMeta>
+                </SoftCard>
+              ))}
+            </Stack>
+          </>
+        )}
+
         {loans.length === 0 ? (
           <SoftCard style={{ marginTop: 18 }}>
             <div style={{ fontWeight: 300, fontSize: 13, lineHeight: 1.6, color: 'var(--text-body)' }}>
-              No loans on record. Money you lend to or borrow from people outside Nomad shows here once Nomad adds it to your records.
+              No loans yet. Set one up with other Nomad members, or keep a private record of money you lent to or borrowed from someone outside Nomad.
             </div>
           </SoftCard>
         ) : (

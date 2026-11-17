@@ -1,19 +1,20 @@
 import { useNavigate } from 'react-router-dom';
 import Badge from '../components/ds/Badge';
+import Button from '../components/ds/Button';
 import { Loading, ErrorState } from '../components/ScreenState';
 import { fromMinor, formatFullDate } from '../utils/format';
 import { useMoney } from '../hooks/useMoney';
 import HideBalancesButton from '../components/HideBalancesButton';
 import { useLoans } from '../hooks/useLoans';
-import { LOAN_STATUS_BADGE as STATUS_BADGE } from '../utils/loans';
+import { LOAN_STATUS_BADGE as STATUS_BADGE, loanPrompts, repaidShare } from '../utils/loans';
 import { Amount, Card, Eyebrow, InkCard, ItemMeta, ItemTitle, ProgressBar, Screen, ScreenTitle, Stack } from '../components/ui';
 
 function LoanCard({ loan, onOpen }) {
   const { fmt } = useMoney();
-  const principal = fromMinor(loan.principalMinor);
+  const totalDue = fromMinor(loan.totalDueMinor ?? loan.principalMinor);
   const repaid = fromMinor(loan.repaidMinor);
   const outstanding = fromMinor(loan.outstandingMinor);
-  const repaidPct = principal > 0 ? Math.min(100, Math.max(0, (repaid / principal) * 100)) : 0;
+  const repaidPct = repaidShare(loan) * 100;
   const lent = loan.direction === 'lent';
   const since = loan.startDate ? `${lent ? 'Lent' : 'Borrowed'} ${formatFullDate(loan.startDate)}` : `${lent ? 'Lent' : 'Borrowed'} · date to confirm`;
 
@@ -30,7 +31,7 @@ function LoanCard({ loan, onOpen }) {
           ) : (
             <div style={{ fontWeight: 500, fontSize: 14, color: lent ? 'var(--text-heading)' : 'var(--accent-clay)' }}>{fmt(outstanding)}</div>
           )}
-          <div style={{ marginTop: 5, fontWeight: 300, fontSize: 11, color: 'var(--text-faint)' }}>of {fmt(principal)}</div>
+          <div style={{ marginTop: 5, fontWeight: 300, fontSize: 11, color: 'var(--text-faint)' }}>of {fmt(totalDue)}</div>
         </div>
       </div>
       <ProgressBar top={14} pct={repaidPct} height={5} radius={3} track="var(--sand-line)" />
@@ -50,6 +51,7 @@ export default function BorrowScreen() {
   const lent = loans.filter((l) => l.direction === 'lent');
   const borrowed = loans.filter((l) => l.direction === 'borrowed');
   const open = (l) => navigate(`/loan?id=${l.id}`);
+  const prompts = loanPrompts(loans);
 
   return (
     <Screen>
@@ -67,9 +69,27 @@ export default function BorrowScreen() {
         </div>
       </InkCard>
 
+      <div style={{ marginTop: 14 }}>
+        <Button variant="primary" size="md" full onClick={() => navigate('/loan/new')}>New loan</Button>
+      </div>
+
+      {prompts.length > 0 && (
+        <>
+          <Eyebrow top={22}>Waiting for you</Eyebrow>
+          <Stack>
+            {prompts.map((p) => (
+              <Card key={p.key} padding="15px 18px" onClick={() => navigate(`/loan?id=${p.loanId}`)} style={{ borderColor: 'var(--accent-gold)' }}>
+                <ItemTitle size={14}>{p.title}</ItemTitle>
+                <ItemMeta>{p.amountMinor ? `${ksh(fromMinor(p.amountMinor))} · ` : ''}{p.detail}</ItemMeta>
+              </Card>
+            ))}
+          </Stack>
+        </>
+      )}
+
       {loans.length === 0 ? (
         <div style={{ marginTop: 22, fontWeight: 300, fontSize: 13, lineHeight: 1.6, color: 'var(--text-muted)' }}>
-          No loans on record. Money you lend to or borrow from people outside Nomad shows here once it&apos;s added to your records.
+          No loans yet. Set one up with other Nomad members, or keep a private record of money you lent to or borrowed from someone outside Nomad.
         </div>
       ) : (
         <>

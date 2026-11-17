@@ -3,10 +3,10 @@ import { useCallback, useEffect, useState } from 'react';
 const EMPTY_TOTALS = { owedToYouMinor: '0', youOweMinor: '0' };
 
 /**
- * The user's private loans — money they lent to, or borrowed from, people
- * outside Nomad — with repayments and derived outstanding amounts.
- * Admin-entered from their sheet; read-only here. A member with none gets
- * an empty list and zero totals.
+ * Every loan the member is on — with other members, with people outside
+ * Nomad, and older admin-entered ones — each with its repayments and
+ * what's still outstanding. A member with none gets an empty list and
+ * zero totals.
  */
 export function useLoans() {
   const [state, setState] = useState({ status: 'loading', loans: [], totals: EMPTY_TOTALS, error: null });
@@ -37,4 +37,20 @@ export function useLoans() {
  */
 export function netLoansMinor(totals) {
   return Number(totals.owedToYouMinor) - Number(totals.youOweMinor);
+}
+
+/**
+ * Sends one loan action (create, answer, cancel, record-payment,
+ * decide-payment, cancel-payment) for the signed-in member. Resolves with
+ * the server's reply; throws with the server's message when it refuses.
+ */
+export async function loanAction(action, body) {
+  const res = await fetch('/api/external-holdings?resource=loans', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...body }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? 'Something went wrong. Try again.');
+  return data;
 }

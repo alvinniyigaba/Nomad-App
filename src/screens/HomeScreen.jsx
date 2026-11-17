@@ -13,6 +13,7 @@ import { useAccounts } from '../hooks/useAccounts';
 import { useExternalHoldings } from '../hooks/useExternalHoldings';
 import { useKyc } from '../hooks/useKyc';
 import { useLoans, netLoansMinor } from '../hooks/useLoans';
+import { loanPrompts } from '../utils/loans';
 import { positionInvestedMinor } from '../utils/investmentSeries';
 import { ActionLabel, Amount, Card, Eyebrow, InkCard, ItemMeta, ItemTitle, Screen, Stack } from '../components/ui';
 
@@ -22,7 +23,7 @@ export default function HomeScreen() {
   const { status, goal, liquid, groupGoals, error, refetch } = useAccounts();
   const { holdings } = useExternalHoldings();
   const { kyc } = useKyc();
-  const { totals: loanTotals } = useLoans();
+  const { totals: loanTotals, loans: loanList } = useLoans();
   const { fmt, ksh } = useMoney();
 
   if (status === 'loading') return <Loading />;
@@ -125,6 +126,16 @@ export default function HomeScreen() {
       <Eyebrow>Needs your attention</Eyebrow>
 
       <Stack top={14}>
+        {loanPrompts(loanList).map((p) => (
+          <Card key={p.key} padding="17px 20px" onClick={() => navigate(`/loan?id=${p.loanId}`)} style={{ display: 'flex', alignItems: 'center', gap: 14, borderColor: 'var(--accent-gold)' }}>
+            <div style={{ width: 11, height: 11, border: '1.4px solid var(--accent-gold)', borderRadius: 6, flex: 'none' }} />
+            <div style={{ flex: 1 }}>
+              <ItemTitle size={15}>{p.title}</ItemTitle>
+              <ItemMeta>{p.amountMinor ? `${ksh(fromMinor(p.amountMinor))} · ` : ''}{p.detail}</ItemMeta>
+            </div>
+            <ActionLabel>OPEN</ActionLabel>
+          </Card>
+        ))}
         {goal && (
           <Card padding="17px 20px" onClick={() => navigate('/save/goal')} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 11, height: 11, border: '1.4px solid var(--sand-line)', borderRadius: 6, flex: 'none' }} />

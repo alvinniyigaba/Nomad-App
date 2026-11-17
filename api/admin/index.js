@@ -97,6 +97,16 @@
 // a mistake is corrected with a negative amount. Outstanding is always
 // derived as principal minus repayments.
 //
+// resource=loan-agreements (GET ?username): every loan a member is on, as
+// they see it in the app — loans between members, their private ledger and
+// any older loans not yet copied across — with the totals that feed their
+// position. Read-only; members set up and answer loans themselves.
+//
+// resource=migrate-legacy-loans (POST): copies each older private loan
+// (resource=loans above) and its repayments into a private-ledger loan
+// agreement, once. Already-copied loans are skipped, so re-running is safe;
+// a copied loan stops showing in its old form, so nothing is counted twice.
+//
 // resource=member-finances (GET ?username / POST): a member's day-to-day
 // costs, declared income and any stage override — what their journey
 // screens are derived from. Append-only; see handleMemberFinances.
@@ -106,6 +116,7 @@ import { db, query, withTransaction } from '../_lib/db.js';
 import { postEntry } from '../_lib/ledger.js';
 import { getAccountMembers } from '../_lib/access.js';
 import { getLoansForUser } from '../_lib/loans.js';
+import { getLoansForUser as getMemberLoansForUser, migrateLegacyLoans } from '../_lib/loanAgreements.js';
 
 async function resolveUserId(username) {
   if (!username) return null;
@@ -894,6 +905,20 @@ async function handleMemberFinances(req, res) {
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
+async function handleLoanAgreements(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const { username } = req.query;
+  if (typeof username !== 'string' || !username) return res.status(400).json({ error: 'username is required' });
+  const { rows } = await query('SELECT id FROM users WHERE username = $1', [username.trim().toLowerCase()]);
+  if (!rows[0]) return res.status(404).json({ error: `Unknown username: ${username}` });
+  return res.status(200).json(await getMemberLoansForUser(rows[0].id));
+}
+
+async function handleMigrateLegacyLoans(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  return res.status(200).json({ ok: true, ...(await migrateLegacyLoans()) });
+}
+
 function isAuthorized(req) {
   if (process.env.ADMIN_TOKEN && req.query.token === process.env.ADMIN_TOKEN) return true;
   const authHeader = req.headers.authorization || '';
@@ -919,7 +944,9 @@ export default async function handler(req, res) {
   if (req.query.resource === 'loans') return handleLoans(req, res);
   if (req.query.resource === 'loan-repayments') return handleLoanRepayments(req, res);
   if (req.query.resource === 'member-finances') return handleMemberFinances(req, res);
+  if (req.query.resource === 'loan-agreements') return handleLoanAgreements(req, res);
+  if (req.query.resource === 'migrate-legacy-loans') return handleMigrateLegacyLoans(req, res);
   return res.status(400).json({
-    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, login-stats, reset-credentials, loans, or loan-repayments',
+    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, login-stats, reset-credentials, loans, loan-repayments, member-finances, loan-agreements, or migrate-legacy-loans',
   });
 }

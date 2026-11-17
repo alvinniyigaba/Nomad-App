@@ -173,14 +173,65 @@ no manual step needed after that.
 
 ## Loans (Borrow tab)
 
-The Borrow tab ("Borrow & Lend") shows money a member lent to or borrowed
-from people outside Nomad, from the `loans`/`loan_repayments` tables. The
-old mock "borrow against your savings" screen and its mock data are gone;
-a member with no loans sees zeros. Loans count toward Total position:
-Home and the Position summary both add owed-to-you and subtract you-owe
-via `netLoansMinor` (`src/hooks/useLoans.js`), for active and overdue
-loans only — repaid and written-off loans drop out. Loan detail is
-`/loan?id=<loan id>`.
+The Borrow tab ("Borrow & Lend") shows every loan a member is on. Nothing
+moves money: loans are tracked, and the money changes hands outside the
+app (mobile money, cash).
+
+**Two kinds, one model** (`loan_agreements`, `loan_parties`,
+`loan_payments` in `db/schema.sql`):
+- **Between members** (`kind 'member'`): any member sets it up from
+  Borrow → New loan (`/loan/new`), naming the lenders and borrowers and
+  each one's share. Every party sees it. It starts `proposed` and counts
+  for nobody until everyone has accepted; one decline ends it; the creator
+  can cancel it while it's waiting. Several borrowers (or lenders) are
+  allowed: **split** means each borrower owes only their share, **joint**
+  means they owe the whole together (each still counts only their share
+  in their own position, so nothing is counted twice).
+- **With someone outside Nomad** (`kind 'external'`): a private ledger,
+  the member plus a typed name, seen by that member only. No accepting or
+  confirming. The older admin-entered `loans`/`loan_repayments` rows are
+  copied into these by `resource=migrate-legacy-loans`; until a row is
+  copied it is still shown in its old form, and once copied the old row
+  is hidden, so nothing is counted twice.
+
+**Interest** is flat: share × rate per month × months, fixed at setup
+(a yearly rate is spread over 12 months). A loan with a rate needs a
+term. **Repayment plan** (optional): N equal monthly instalments on a due
+day (the month's last day when shorter); each is the total ÷ N in whole
+shillings and the last takes the remainder. Per split borrower the plan
+is on their own share; on a joint loan it's on the whole. "Behind" is
+what's fallen due less what's been paid. Repaid and overdue are derived,
+never stored; overdue means the last due date has passed with money owed.
+
+**Payments** go from a borrower to a lender. The receiver recording it
+counts at once; the payer recording it is `pending` until the receiver
+confirms or says they didn't receive it, and the payer can withdraw it
+while pending. Amounts, people and dates are never edited; a mistaken
+confirmed payment is for an admin to correct (no member path yet). A
+payment can't take a share past what's owed. Home and Borrow show
+"waiting for you" prompts for loans to answer and payments to confirm
+(`loanPrompts` in `src/utils/loans.js`).
+
+**Where the code is:** arithmetic in `api/_lib/loanMath.js` (pure; also
+used by the New loan form's preview, and tested in
+`src/utils/__tests__/loans.test.js`); reads, writes and every access
+check in `api/_lib/loanAgreements.js`; the member endpoint is
+`/api/external-holdings?resource=loans` (GET, and POST with an `action`:
+create, answer, cancel, record-payment, decide-payment, cancel-payment)
+because the Hobby plan's 12 functions are all used. Every action checks
+the signed-in member is a party on that loan; a loan they're not on
+answers 404. Admin: `resource=loan-agreements` (GET ?username, a member's
+loans as they see them) and `resource=migrate-legacy-loans` (POST, safe
+to re-run).
+
+**Totals:** Home, Position and the journey screens all read
+`totals.owedToYouMinor`/`youOweMinor` from the same endpoint, so they
+can't drift apart. Only loans everyone has accepted count.
+
+**Switching it on in production:** after deploying, run
+`resource=migrate` (creates the three tables) and then
+`resource=migrate-legacy-loans`. Before the tables exist, Borrow keeps
+showing the older loans and New loan answers "not switched on yet".
 
 ## Hide balances
 

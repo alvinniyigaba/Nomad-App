@@ -38,7 +38,11 @@ export default function PositionSummaryScreen() {
   const invested = fromMinor(positionInvestedMinor(externalHoldings));
   // Same fields Home's collapsed card sums, plus group goals — keeps the two screens' totals from ever silently diverging.
   const total = individualSaved + groupTotal + invested + fromMinor(netLoansMinor(loanTotals));
-  const openLoans = loans.filter((l) => (l.status === 'active' || l.status === 'overdue') && Number(l.outstandingMinor) > 0);
+  // What each loan adds to this member's position: on a joint loan that's
+  // their share of what's left, not the whole (positionMinor), so these rows
+  // add up to the total above.
+  const countedMinor = (l) => l.positionMinor ?? l.outstandingMinor;
+  const openLoans = loans.filter((l) => (l.status === 'active' || l.status === 'overdue') && Number(countedMinor(l)) > 0);
 
   return (
     <Screen>
@@ -110,7 +114,7 @@ export default function PositionSummaryScreen() {
           <div key={l.id} onClick={() => navigate(`/loan?id=${l.id}`)} style={{ cursor: 'pointer' }}>
             <Row
               label={l.direction === 'lent' ? `Owed by ${l.counterparty}` : `You owe ${l.counterparty}`}
-              value={l.direction === 'lent' ? fmt(fromMinor(l.outstandingMinor)) : `−${fmt(fromMinor(l.outstandingMinor))}`}
+              value={l.direction === 'lent' ? fmt(fromMinor(countedMinor(l))) : `−${fmt(fromMinor(countedMinor(l)))}`}
             />
           </div>
         ))

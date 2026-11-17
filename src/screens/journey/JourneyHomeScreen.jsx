@@ -11,6 +11,7 @@ import { useMoney } from '../../hooks/useMoney';
 import { useAppState } from '../../state/AppStateContext';
 import { capitalize, formatMonthYear, fromMinor, greeting } from '../../utils/format';
 import { paceStatus } from '../../utils/pacing';
+import { loanPrompts } from '../../utils/loans';
 import { compactMinor, percent } from './format';
 
 /** One line under the currency switch: what the chosen currency holds, or the overall picture for "All". */
@@ -36,13 +37,15 @@ function currencyLines(spread, view, money) {
 export default function JourneyHomeScreen() {
   const navigate = useNavigate();
   const { user } = useAppState();
-  const { status, error, refetch, model, accounts } = useJourneyScreen();
+  const { status, error, refetch, model, accounts, loans } = useJourneyScreen();
   const { kyc } = useKyc();
   const money = useMoney();
   const [view, setView] = useState('ALL');
 
   if (status === 'loading') return <Loading />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
+
+  const prompts = loanPrompts(loans);
 
   const { position, spread, stage, independence, next } = model;
   const lines = currencyLines(spread, spread.currencies.some((c) => c.code === view) ? view : 'ALL', money);
@@ -145,10 +148,16 @@ export default function JourneyHomeScreen() {
           </div>
         </SoftCard>
 
-        {(goal || (kyc && !kyc.complete)) && (
+        {(goal || (kyc && !kyc.complete) || prompts.length > 0) && (
           <>
             <Eyebrow top={24}>Needs your attention</Eyebrow>
             <Stack>
+              {prompts.map((p) => (
+                <SoftCard key={p.key} padding="15px 18px" onClick={() => navigate(`/loan?id=${p.loanId}`)} style={{ boxShadow: 'var(--shadow-sm)' }}>
+                  <ItemTitle size={15}>{p.title}</ItemTitle>
+                  <ItemMeta>{p.amountMinor ? `${money.ksh(fromMinor(p.amountMinor))} · ` : ''}{p.detail}</ItemMeta>
+                </SoftCard>
+              ))}
               {goal && (
                 <SoftCard padding="15px 18px" onClick={() => navigate('/save/goal')} style={{ boxShadow: 'var(--shadow-sm)' }}>
                   <ItemTitle size={15}>{goal.name} is {pace?.behindMinor > 0 ? 'behind pace' : 'on pace'}</ItemTitle>

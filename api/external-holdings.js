@@ -1,6 +1,6 @@
 import { requireFullSession } from './_lib/auth.js';
 import { query } from './_lib/db.js';
-import { getLoansForUser } from './_lib/loans.js';
+import { answerAgreement, cancelAgreement, cancelPayment, createAgreement, decidePayment, getLoansForUser, recordPayment } from './_lib/loanAgreements.js';
 
 function serialize(row, history) {
   return {
@@ -25,23 +25,48 @@ function serialize(row, history) {
   };
 }
 
+const LOAN_ACTIONS = {
+  create: createAgreement,
+  answer: answerAgreement,
+  cancel: cancelAgreement,
+  'record-payment': recordPayment,
+  'decide-payment': decidePayment,
+  'cancel-payment': cancelPayment,
+};
+
 /**
- * Read-only views of the signed-in user's own off-ledger positions, written
- * by an admin (see api/admin/index.js):
- * - default: savings/investment holdings (resource=external-holdings there)
- * - ?resource=loans: private loans they've made or taken (resource=loans)
- * Both live in this one function because Vercel's Hobby plan caps
- * Serverless Functions at 12. They share the same access rule — the
- * user's own rows, after the PIN — and nothing here moves money.
+ * The signed-in member's own off-ledger positions, after the PIN:
+ * - default (GET): savings/investment holdings, written by an admin
+ *   (resource=external-holdings in api/admin/index.js).
+ * - ?resource=loans (GET): every loan they're on — loans between members,
+ *   their private ledger of loans with people outside Nomad, and any older
+ *   admin-entered loans not yet copied across.
+ * - ?resource=loans (POST { action, ... }): setting up and answering loans
+ *   and recording or confirming payments. Each action checks the member is
+ *   on the loan; see api/_lib/loanAgreements.js.
+ * All in this one function because Vercel's Hobby plan caps Serverless
+ * Functions at 12. Nothing here moves money: loans are tracked, and the
+ * money itself changes hands outside the app.
  */
 export default async function handler(req, res) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'GET' && !(req.method === 'POST' && req.query?.resource === 'loans')) {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   const session = await requireFullSession(req, res);
   if (!session) return;
 
   if (req.query?.resource === 'loans') {
-    return res.status(200).json(await getLoansForUser(session.user_id));
+    if (req.method === 'GET') return res.status(200).json(await getLoansForUser(session.user_id));
+    const action = LOAN_ACTIONS[req.body?.action];
+    if (!action) return res.status(400).json({ error: `action must be one of ${Object.keys(LOAN_ACTIONS).join(', ')}` });
+    try {
+      return res.status(200).json({ ok: true, ...(await action(session.user_id, req.body)) });
+    } catch (err) {
+      if (err.status) return res.status(err.status).json({ error: err.message });
+      if (err.code === '42P01') return res.status(503).json({ error: 'Loans between members aren’t switched on yet.' });
+      throw err;
+    }
   }
 
   const { rows } = await query(

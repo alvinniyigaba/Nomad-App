@@ -265,3 +265,87 @@ CREATE TABLE IF NOT EXISTS archetype_placements (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS archetype_placements_user_id_idx ON archetype_placements(user_id, created_at);
+
+-- ── Loan agreements (members lending to each other, and private ledgers) ──
+-- Additive: three new tables. The older loans/loan_repayments tables stay
+-- until their rows are copied across (admin resource=migrate-legacy-loans);
+-- a copied loan points back at its original through legacy_loan_id, and the
+-- original then stops being shown, so nothing is counted twice.
+--
+-- kind 'member': every party is a Nomad member and each party sees the
+--   agreement. It counts for nobody until every party has accepted it.
+-- kind 'external': a private ledger. One member party (the owner) and one
+--   outside person, known only by name; only the owner sees it.
+--
+-- liability (more than one borrower): 'split' — each borrower owes their own
+-- share; 'joint' — the borrowers owe the whole amount together.
+-- Interest is flat: share × rate per month × term_months, fixed at setup.
+-- A loan with a rate needs a term. A repayment plan (term_months +
+-- first_due_date + due_day) pays the total off in equal monthly instalments.
+-- Repaid and overdue are derived, never stored.
+CREATE TABLE IF NOT EXISTS loan_agreements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  kind text NOT NULL CHECK (kind IN ('member', 'external')),
+  created_by uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  liability text NOT NULL DEFAULT 'split' CHECK (liability IN ('split', 'joint')),
+  principal_minor bigint NOT NULL CHECK (principal_minor > 0),
+  rate_bps int NOT NULL DEFAULT 0 CHECK (rate_bps >= 0),
+  rate_period text NOT NULL DEFAULT 'month' CHECK (rate_period IN ('month', 'year')),
+  term_months int CHECK (term_months BETWEEN 1 AND 600),
+  start_date date NOT NULL,
+  first_due_date date,
+  due_day int CHECK (due_day BETWEEN 1 AND 31),
+  due_date date,
+  status text NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed', 'active', 'declined', 'cancelled', 'written_off')),
+  terms text,
+  notes text,
+  legacy_loan_id uuid UNIQUE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (rate_bps = 0 OR term_months IS NOT NULL),
+  CHECK ((first_due_date IS NULL) = (due_day IS NULL)),
+  CHECK (first_due_date IS NULL OR term_months IS NOT NULL)
+);
+
+-- The people on a loan. A member party has user_id; an outside person (only
+-- on kind 'external') has external_name instead. share_minor is the party's
+-- part of the principal: lenders' shares and borrowers' shares each add up
+-- to principal_minor. accepted_at/declined_at record each member's answer.
+CREATE TABLE IF NOT EXISTS loan_parties (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agreement_id uuid NOT NULL REFERENCES loan_agreements(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  external_name text,
+  role text NOT NULL CHECK (role IN ('lender', 'borrower')),
+  share_minor bigint NOT NULL CHECK (share_minor > 0),
+  accepted_at timestamptz,
+  declined_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK ((user_id IS NULL) <> (external_name IS NULL)),
+  UNIQUE (agreement_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS loan_parties_user_id_idx ON loan_parties(user_id);
+CREATE INDEX IF NOT EXISTS loan_parties_agreement_id_idx ON loan_parties(agreement_id);
+
+-- Money paid from a borrower to a lender. The amount, the people and the
+-- date are never edited: a mistake is cancelled while still pending, or
+-- corrected with a negative payment. Only status moves, once: a payment the
+-- receiver records is 'confirmed' at once; one the payer records is
+-- 'pending' until the receiver confirms or rejects it. Only confirmed
+-- payments count.
+CREATE TABLE IF NOT EXISTS loan_payments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agreement_id uuid NOT NULL REFERENCES loan_agreements(id) ON DELETE CASCADE,
+  payer_party_id uuid NOT NULL REFERENCES loan_parties(id) ON DELETE CASCADE,
+  payee_party_id uuid NOT NULL REFERENCES loan_parties(id) ON DELETE CASCADE,
+  amount_minor bigint NOT NULL CHECK (amount_minor <> 0),
+  paid_on date NOT NULL,
+  memo text,
+  recorded_by uuid REFERENCES users(id) ON DELETE SET NULL,
+  status text NOT NULL CHECK (status IN ('pending', 'confirmed', 'rejected', 'cancelled')),
+  decided_by uuid REFERENCES users(id) ON DELETE SET NULL,
+  decided_at timestamptz,
+  idempotency_key text UNIQUE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS loan_payments_agreement_id_idx ON loan_payments(agreement_id, paid_on);
