@@ -12,3 +12,15 @@ export function journeyEnabled(username) {
     .filter(Boolean);
   return list.includes('*') || list.includes((username ?? '').trim().toLowerCase());
 }
+
+// The Nomad Money phone link (api/journey.js?resource=money). NOMAD_MONEY_USERS
+// works like JOURNEY_PREVIEW_USERS; unset, only the first tester can link a phone.
+const DEFAULT_MONEY_USERS = 'niyigaba';
+
+export function moneyLinkEnabled(username) {
+  const list = (process.env.NOMAD_MONEY_USERS ?? DEFAULT_MONEY_USERS)
+    .split(',')
+    .map((u) => u.trim().toLowerCase())
+    .filter(Boolean);
+  return list.includes('*') || list.includes((username ?? '').trim().toLowerCase());
+}

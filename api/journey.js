@@ -1,6 +1,7 @@
 import { requireFullSession } from './_lib/auth.js';
 import { query } from './_lib/db.js';
-import { journeyEnabled } from './_lib/features.js';
+import { journeyEnabled, moneyLinkEnabled } from './_lib/features.js';
+import { deviceFromRequest, phoneCors, snapshot, sync } from './_lib/moneyLink.js';
 
 // Postgres codes for "relation does not exist" / "column does not exist".
 // The journey tables arrive with a migration that is run by hand after the
@@ -28,6 +29,7 @@ async function rowsOrEmpty(text, params) {
  * JS Date it would shift a day wherever the server isn't on UTC.
  */
 export default async function handler(req, res) {
+  if (req.query?.resource === 'money') return handleMoney(req, res);
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const session = await requireFullSession(req, res);
@@ -62,4 +64,33 @@ export default async function handler(req, res) {
       .map((r) => ({ label: r.label, kind: r.kind, amountMinor: r.amount_minor.toString(), frequency: r.frequency, effectiveFrom: r.effective_from })),
     stageOverride: placements[0]?.archetype ?? null,
   });
+}
+
+/**
+ * resource=money: the Nomad Money phone app (device token, not a session).
+ * GET  -> snapshot the phone caches for offline use (accounts, loans, figures on record)
+ * POST -> { mode: 'preview' | 'commit', asOf: 'YYYY-MM', costs, income, contributions, repayments }
+ *         preview never writes; commit appends only what changed (see _lib/moneyLinkPlan.js).
+ * Lives here rather than in its own file because the Hobby plan's 12 functions are all used.
+ */
+async function handleMoney(req, res) {
+  phoneCors(req, res);
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  let member;
+  try {
+    member = await deviceFromRequest(req);
+  } catch (err) {
+    if (NOT_MIGRATED.has(err.code)) return res.status(503).json({ error: 'Nomad Money link is not switched on yet (migration pending)' });
+    throw err;
+  }
+  if (!member) return res.status(401).json({ error: 'This phone is not linked, or its link was revoked' });
+  if (!moneyLinkEnabled(member.username)) return res.status(404).json({ error: 'Not found' });
+
+  if (req.method === 'GET') return res.status(200).json(await snapshot(member));
+  if (req.method === 'POST') {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body;
+    const out = await sync(member, body);
+    return res.status(out.status).json(out.body);
+  }
+  return res.status(405).json({ error: 'Method not allowed' });
 }

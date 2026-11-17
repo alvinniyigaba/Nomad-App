@@ -107,6 +107,9 @@
 // agreement, once. Already-copied loans are skipped, so re-running is safe;
 // a copied loan stops showing in its old form, so nothing is counted twice.
 //
+// resource=money-device (GET ?username / POST / DELETE): links or revokes a
+// member's Nomad Money phone. The token is returned once and stored hashed.
+//
 // resource=member-finances (GET ?username / POST): a member's day-to-day
 // costs, declared income and any stage override — what their journey
 // screens are derived from. Append-only; see handleMemberFinances.
@@ -117,6 +120,7 @@ import { postEntry } from '../_lib/ledger.js';
 import { getAccountMembers } from '../_lib/access.js';
 import { getLoansForUser } from '../_lib/loans.js';
 import { getLoansForUser as getMemberLoansForUser, migrateLegacyLoans } from '../_lib/loanAgreements.js';
+import { createDevice } from '../_lib/moneyLink.js';
 
 async function resolveUserId(username) {
   if (!username) return null;
@@ -919,6 +923,37 @@ async function handleMigrateLegacyLoans(req, res) {
   return res.status(200).json({ ok: true, ...(await migrateLegacyLoans()) });
 }
 
+/**
+ * resource=money-device: links a member's Nomad Money phone app.
+ * GET ?username= lists their linked phones (never the tokens).
+ * POST { username, label? } creates a device token and returns it ONCE — only a
+ *   hash is kept. Use scripts/link-money-device.sh so the token never passes
+ *   through GitHub or a chat.
+ * DELETE { id } revokes a phone.
+ */
+async function handleMoneyDevice(req, res) {
+  if (req.method === 'GET') {
+    const userId = await resolveUserId(req.query.username);
+    if (!userId) return res.status(404).json({ error: 'No such user' });
+    const { rows } = await query('SELECT id, label, created_at, last_seen_at, revoked_at FROM money_devices WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
+    return res.status(200).json({ devices: rows });
+  }
+  if (req.method === 'POST') {
+    const { username, label } = req.body ?? {};
+    const userId = await resolveUserId(username);
+    if (!userId) return res.status(404).json({ error: 'No such user' });
+    const device = await createDevice(userId, typeof label === 'string' ? label.trim().slice(0, 60) : null);
+    return res.status(200).json({ ok: true, deviceId: device.id, token: device.token, note: 'Shown once. Paste it into Nomad Money › Settings › Nomad App link.' });
+  }
+  if (req.method === 'DELETE') {
+    const { id } = req.body ?? {};
+    if (typeof id !== 'string') return res.status(400).json({ error: 'id is required' });
+    const { rowCount } = await query('UPDATE money_devices SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL', [id]);
+    return res.status(rowCount ? 200 : 404).json(rowCount ? { ok: true } : { error: 'No such active device' });
+  }
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+
 function isAuthorized(req) {
   if (process.env.ADMIN_TOKEN && req.query.token === process.env.ADMIN_TOKEN) return true;
   const authHeader = req.headers.authorization || '';
@@ -946,7 +981,8 @@ export default async function handler(req, res) {
   if (req.query.resource === 'member-finances') return handleMemberFinances(req, res);
   if (req.query.resource === 'loan-agreements') return handleLoanAgreements(req, res);
   if (req.query.resource === 'migrate-legacy-loans') return handleMigrateLegacyLoans(req, res);
+  if (req.query.resource === 'money-device') return handleMoneyDevice(req, res);
   return res.status(400).json({
-    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, login-stats, reset-credentials, loans, loan-repayments, member-finances, loan-agreements, or migrate-legacy-loans',
+    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, login-stats, reset-credentials, loans, loan-repayments, member-finances, loan-agreements, migrate-legacy-loans, or money-device',
   });
 }
