@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { query, withTransaction } from './db.js';
-import { getLoansForUser } from './loans.js';
+import { getLoansForUser, recordPayment } from './loanAgreements.js';
 import { SOURCE, planCosts, planIncome, planRepayments, compareContributions, validatePayload } from './moneyLinkPlan.js';
 
 // The Nomad Money phone app talks to Nomad through api/journey.js?resource=money
@@ -58,22 +58,53 @@ async function currentFigures(userId) {
   };
 }
 
-async function loanRoutes(userId) {
-  const { rows } = await query('SELECT loan_ref, repayment_route FROM loans WHERE user_id = $1', [userId]);
-  return rows.map((r) => ({ loanRef: r.loan_ref, route: r.repayment_route }));
+// The member's loans (agreements + any older loans not yet copied), each with
+// this member's repayment route. Before the loan tables exist, routes are all 'app'.
+async function loansWithRoutes(userId) {
+  const { loans, totals } = await getLoansForUser(userId);
+  let routes = new Map();
+  try {
+    const { rows } = await query('SELECT id, repayment_route FROM loan_parties WHERE user_id = $1', [userId]);
+    routes = new Map(rows.map((r) => [r.id, r.repayment_route]));
+  } catch (err) {
+    if (!['42P01', '42703'].includes(err.code)) throw err;
+  }
+  return { totals, loans: loans.map((l) => ({ ...l, route: (l.myPartyId && routes.get(l.myPartyId)) || 'app' })) };
+}
+
+async function postedFromPhone(userId) {
+  try {
+    const { rows } = await query(
+      `SELECT idempotency_key, agreement_id, amount_minor::text AS amount_minor, status FROM loan_payments
+       WHERE idempotency_key LIKE $1`, [`${userId}:nm:%`]);
+    return rows.map((r) => ({ key: r.idempotency_key.slice(userId.length + 1), agreementId: r.agreement_id, amountMinor: r.amount_minor, status: r.status }));
+  } catch (err) {
+    if (err.code === '42P01') return [];
+    throw err;
+  }
+}
+
+/** The member chooses, per loan, whether the phone records their payments on it. */
+export async function setRoute(member, { agreementId, route }) {
+  if (!['app', 'nomad_money'].includes(route)) return { status: 400, body: { error: 'route must be app or nomad_money' } };
+  const { rowCount } = await query('UPDATE loan_parties SET repayment_route = $3 WHERE agreement_id = $1 AND user_id = $2', [agreementId, member.user_id, route]);
+  return rowCount ? { status: 200, body: { ok: true, agreementId, route } } : { status: 404, body: { error: 'You are not on that loan' } };
 }
 
 /** What the phone caches for offline use: accounts, loans, figures on record. */
 export async function snapshot(member) {
-  const [accounts, loans, routes, figures] = await Promise.all([
-    memberAccounts(member.user_id), getLoansForUser(member.user_id), loanRoutes(member.user_id), currentFigures(member.user_id),
+  const [accounts, loans, figures] = await Promise.all([
+    memberAccounts(member.user_id), loansWithRoutes(member.user_id), currentFigures(member.user_id),
   ]);
-  const route = Object.fromEntries(routes.map((r) => [r.loanRef, r.route]));
   return {
     username: member.username,
     serverTime: new Date().toISOString(),
     accounts: accounts.map((a) => ({ name: a.name, kind: a.kind, isGroup: a.is_group, myEntriesMinor: a.mine_minor })),
-    loans: loans.loans.map((l) => ({ ...l, repayments: undefined, route: route[l.loanRef] || 'sheet' })),
+    loans: loans.loans.map((l) => ({
+      id: l.id, source: l.source, kind: l.kind, direction: l.direction, counterparty: l.counterparty,
+      status: l.status, outstandingMinor: l.outstandingMinor, totalDueMinor: l.totalDueMinor, route: l.route,
+      pendingPayments: (l.pendingPayments || []).length,
+    })),
     loanTotals: loans.totals,
     costsOnRecord: figures.costs,
     incomeOnRecord: figures.income,
@@ -85,15 +116,12 @@ export async function sync(member, payload) {
   const problems = validatePayload(payload);
   if (problems.length) return { status: 400, body: { error: 'Invalid payload', problems } };
 
-  const [figures, accounts, routes, posted] = await Promise.all([
-    currentFigures(member.user_id), memberAccounts(member.user_id), loanRoutes(member.user_id),
-    query(`SELECT r.idempotency_key, r.amount_minor::text AS amount_minor, l.loan_ref FROM loan_repayments r JOIN loans l ON l.id = r.loan_id
-           WHERE l.user_id = $1 AND r.idempotency_key LIKE 'nm:%'`, [member.user_id]),
+  const [figures, accounts, loans, posted] = await Promise.all([
+    currentFigures(member.user_id), memberAccounts(member.user_id), loansWithRoutes(member.user_id), postedFromPhone(member.user_id),
   ]);
   const costs = planCosts(payload.costs || {}, figures.costs, payload.asOf);
   const income = planIncome(payload.income || [], figures.income, payload.asOf);
-  const repayments = planRepayments(payload.repayments || [],
-    posted.rows.map((r) => ({ idempotencyKey: r.idempotency_key, loanRef: r.loan_ref, amountMinor: r.amount_minor })), routes);
+  const repayments = planRepayments(payload.repayments || [], posted, loans.loans);
   const contributions = compareContributions(payload.contributions || [],
     accounts.map((a) => ({ account: a.name, amountMinor: a.mine_minor })), accounts.map((a) => a.name));
 
@@ -103,7 +131,7 @@ export async function sync(member, payload) {
     return { status: 200, body: { mode: payload.mode, written: false, writes, plan } };
   }
 
-  await withTransaction(async (c) => {
+  if (costs.rows.length + income.rows.length) await withTransaction(async (c) => {
     for (const r of costs.rows) {
       await c.query('INSERT INTO member_expenses (user_id, category, amount_minor, frequency, effective_from, source) VALUES ($1,$2,$3,$4,$5,$6)',
         [member.user_id, r.category, r.amountMinor, r.frequency, r.effectiveFrom, SOURCE]);
@@ -112,16 +140,22 @@ export async function sync(member, payload) {
       await c.query('INSERT INTO member_income (user_id, kind, label, amount_minor, frequency, effective_from, source) VALUES ($1,$2,$3,$4,$5,$6,$7)',
         [member.user_id, r.kind, r.label, r.amountMinor, r.frequency, r.effectiveFrom, SOURCE]);
     }
-    for (const r of repayments.inserts) {
-      await c.query(`INSERT INTO loan_repayments (loan_id, amount_minor, paid_on, memo, idempotency_key)
-                     SELECT id, $3, $4, $5, $6 FROM loans WHERE user_id = $1 AND loan_ref = $2
-                     ON CONFLICT (idempotency_key) DO NOTHING`,
-        [member.user_id, r.loanRef, r.amountMinor, r.paidOn, r.memo, r.idempotencyKey]);
-    }
-    await c.query('INSERT INTO money_sync_log (user_id, device_id, writes, summary) VALUES ($1,$2,$3,$4)',
-      [member.user_id, member.device_id, writes, JSON.stringify({ costs: costs.rows.length, income: income.rows.length, repayments: repayments.inserts.length, asOf: payload.asOf })]);
   });
-  return { status: 200, body: { mode: 'commit', written: true, writes, plan } };
+  // Payments go through the Nomad App's own path (its checks, confirm step and
+  // idempotency), one at a time; a refusal is reported, not fatal. Safe to resend.
+  const recorded = [];
+  for (const r of repayments.inserts) {
+    try {
+      const out = await recordPayment(member.user_id, { agreementId: r.agreementId, amountMinor: r.amountMinor, paidOn: r.paidOn, memo: r.memo, idempotencyKey: r.key });
+      recorded.push({ key: r.key, counterparty: r.counterparty, status: out.status });
+    } catch (err) {
+      if (!err.status) throw err;
+      repayments.skipped.push({ key: r.key, reason: `${r.counterparty}: ${err.message}` });
+    }
+  }
+  await query('INSERT INTO money_sync_log (user_id, device_id, writes, summary) VALUES ($1,$2,$3,$4)',
+    [member.user_id, member.device_id, writes, JSON.stringify({ costs: costs.rows.length, income: income.rows.length, payments: recorded, asOf: payload.asOf })]);
+  return { status: 200, body: { mode: 'commit', written: true, writes, recorded, plan } };
 }
 
 // The phone app's web view runs on https://localhost (Android) or capacitor://localhost (iOS).

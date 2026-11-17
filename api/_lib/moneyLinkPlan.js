@@ -6,8 +6,10 @@
 //   - day-to-day costs + declared income: Nomad Money writes them (append-only rows)
 //   - savings contributions: CHECK ONLY while calibrating; the sheet stays the
 //     route into the ledger, the phone's figures are compared, never posted
-//   - outright loans: created in Nomad; repayments come from Nomad Money only for
-//     loans whose repayment_route is 'nomad_money', otherwise from the sheet
+//   - loans: set up in the Nomad App (loan_agreements). The phone records this
+//     member's payments only on loans where their party's repayment_route is
+//     'nomad_money', through recordPayment — so member loans still wait for the
+//     other side to confirm, and nothing is edited after the fact
 //   - overdrafts: stay in Nomad Money, never sent
 
 export const EXPENSE_CATEGORIES = ['household', 'rent', 'school_fees', 'medical', 'transport', 'other'];
@@ -44,9 +46,9 @@ export function validatePayload(p) {
   }
   for (const [i, r] of (p.repayments || []).entries()) {
     if (typeof r?.key !== 'string' || !r.key.startsWith('nm:')) errs.push(`repayments[${i}]: key must start with "nm:"`);
-    if (typeof r?.loanRef !== 'string' || !r.loanRef.trim()) errs.push(`repayments[${i}]: loanRef is required`);
+    if (typeof r?.agreementId !== 'string' || !r.agreementId) errs.push(`repayments[${i}]: agreementId is required`);
     if (!isDate(r?.paidOn)) errs.push(`repayments[${i}]: paidOn must be YYYY-MM-DD`);
-    if (!isMinor(r?.amountMinor) || BigInt(r.amountMinor) <= 0n) errs.push(`repayments[${i}]: amountMinor must be above 0`);
+    if (!isMinor(r?.amountMinor) || BigInt(r.amountMinor) <= 0n || BigInt(r.amountMinor) % 100n !== 0n) errs.push(`repayments[${i}]: amountMinor must be whole shillings above 0`);
   }
   return errs;
 }
@@ -83,42 +85,41 @@ export function planIncome(income = [], current = {}, asOf) {
 }
 
 /**
- * Loan repayments, append-only. Each phone entry has a stable key (nm:<entry id>).
- * posted: [{ idempotencyKey, loanRef, amountMinor }] already in loan_repayments with an nm: key.
- * loans:  [{ loanRef, route }] the member's loans.
- * - new key on a nomad_money loan        -> insert
- * - key whose amount changed on the phone -> insert the difference (key:fix:<n>)
- * - key deleted on the phone              -> insert a reversal (key:rev)
- * - loan on the sheet route               -> skipped, reported
+ * Loan payments. Each phone entry has a stable key (nm:<entry id>).
+ * posted: [{ key, agreementId, amountMinor, status }] — this member's loan_payments
+ *   already made from the phone (key without the member prefix).
+ * loans:  the member's loans as getLoansForUser returns them, each with `route`.
+ * - new key on an active agreement routed to nomad_money -> record
+ * - already recorded with the same amount               -> nothing
+ * - amount changed or entry deleted on the phone        -> reported, never edited:
+ *   a pending payment can be withdrawn in the Nomad App, a confirmed one needs an admin
+ * - anything else (other route, not active, older loan, future date) -> skipped, with why
  */
-export function planRepayments(items = [], posted = [], loans = []) {
-  const route = Object.fromEntries(loans.map((l) => [l.loanRef, l.route]));
-  const byBase = new Map();
-  for (const p of posted) {
-    const base = p.idempotencyKey.split(':fix:')[0].replace(/:rev$/, '');
-    const e = byBase.get(base) || { loanRef: p.loanRef, total: 0n, keys: new Set() };
-    e.total += BigInt(p.amountMinor); e.keys.add(p.idempotencyKey);
-    byBase.set(base, e);
-  }
-  const inserts = [], skipped = [];
+export function planRepayments(items = [], posted = [], loans = [], today = new Date().toISOString().slice(0, 10)) {
+  const byId = new Map(loans.map((l) => [l.id, l]));
+  const done = new Map(posted.filter((p) => p.status !== 'cancelled' && p.status !== 'rejected').map((p) => [p.key, p]));
+  const inserts = [], skipped = [], mismatched = [];
   const seen = new Set();
   for (const r of items) {
     seen.add(r.key);
-    if (!(r.loanRef in route)) { skipped.push({ key: r.key, reason: `No loan ${r.loanRef} on record in Nomad` }); continue; }
-    if (route[r.loanRef] !== 'nomad_money') { skipped.push({ key: r.key, reason: `Loan ${r.loanRef} is repaid through the sheet` }); continue; }
-    const had = byBase.get(r.key);
-    const want = BigInt(r.amountMinor);
-    if (!had) { inserts.push({ idempotencyKey: r.key, loanRef: r.loanRef, amountMinor: want.toString(), paidOn: r.paidOn, memo: r.memo || null }); continue; }
-    if (had.total === want) continue;
-    let n = 1; while (had.keys.has(`${r.key}:fix:${n}`)) n++;
-    inserts.push({ idempotencyKey: `${r.key}:fix:${n}`, loanRef: r.loanRef, amountMinor: (want - had.total).toString(), paidOn: r.paidOn, memo: 'Correction from Nomad Money' });
+    const loan = byId.get(r.agreementId);
+    const why = !loan ? 'No such loan in Nomad'
+      : loan.source !== 'agreement' ? 'Older loan not yet copied across — run migrate-legacy-loans'
+      : loan.route !== 'nomad_money' ? `${loan.counterparty}: payments are recorded in the Nomad App`
+      : loan.status === 'proposed' ? `${loan.counterparty}: not everyone has accepted yet`
+      : r.paidOn > today ? 'Dated in the future'
+      : null;
+    if (why) { skipped.push({ key: r.key, reason: why }); continue; }
+    const had = done.get(r.key);
+    if (!had) { inserts.push({ key: r.key, agreementId: r.agreementId, counterparty: loan.counterparty, amountMinor: String(r.amountMinor), paidOn: r.paidOn, memo: r.memo || null }); continue; }
+    if (String(had.amountMinor) !== String(r.amountMinor)) mismatched.push({ key: r.key, counterparty: loan.counterparty, nomadMinor: String(had.amountMinor), phoneMinor: String(r.amountMinor), status: had.status });
   }
-  for (const [base, had] of byBase) {
-    if (seen.has(base) || had.total === 0n || route[had.loanRef] !== 'nomad_money') continue;
-    let n = 1; while (had.keys.has(`${base}:fix:${n}`)) n++;
-    inserts.push({ idempotencyKey: `${base}:fix:${n}`, loanRef: had.loanRef, amountMinor: (-had.total).toString(), paidOn: new Date().toISOString().slice(0, 10), memo: 'Reversal: removed in Nomad Money' });
+  for (const [key, had] of done) {
+    if (seen.has(key)) continue;
+    const loan = byId.get(had.agreementId);
+    mismatched.push({ key, counterparty: loan?.counterparty || 'a loan', nomadMinor: String(had.amountMinor), phoneMinor: '0', status: had.status });
   }
-  return { inserts, skipped };
+  return { inserts, skipped, mismatched };
 }
 
 /**

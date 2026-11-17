@@ -1,7 +1,7 @@
 import { requireFullSession } from './_lib/auth.js';
 import { query } from './_lib/db.js';
 import { journeyEnabled, moneyLinkEnabled } from './_lib/features.js';
-import { deviceFromRequest, phoneCors, snapshot, sync } from './_lib/moneyLink.js';
+import { deviceFromRequest, phoneCors, setRoute, snapshot, sync } from './_lib/moneyLink.js';
 
 // Postgres codes for "relation does not exist" / "column does not exist".
 // The journey tables arrive with a migration that is run by hand after the
@@ -70,6 +70,7 @@ export default async function handler(req, res) {
  * resource=money: the Nomad Money phone app (device token, not a session).
  * GET  -> snapshot the phone caches for offline use (accounts, loans, figures on record)
  * POST -> { mode: 'preview' | 'commit', asOf: 'YYYY-MM', costs, income, contributions, repayments }
+ *         or { action: 'route', agreementId, route: 'app' | 'nomad_money' } for the member's own side of a loan
  *         preview never writes; commit appends only what changed (see _lib/moneyLinkPlan.js).
  * Lives here rather than in its own file because the Hobby plan's 12 functions are all used.
  */
@@ -89,7 +90,7 @@ async function handleMoney(req, res) {
   if (req.method === 'GET') return res.status(200).json(await snapshot(member));
   if (req.method === 'POST') {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body;
-    const out = await sync(member, body);
+    const out = body?.action === 'route' ? await setRoute(member, body) : await sync(member, body);
     return res.status(out.status).json(out.body);
   }
   return res.status(405).json({ error: 'Method not allowed' });
