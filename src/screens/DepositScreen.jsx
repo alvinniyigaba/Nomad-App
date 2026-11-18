@@ -81,6 +81,7 @@ export default function DepositScreen() {
     else if (preferred && accounts.find((a) => a.id === preferred)) setAccountId(preferred);
     else if (goal) setAccountId(goal.id);
     else if (liquid) setAccountId(liquid.id);
+    else if (accounts[0]) setAccountId(accounts[0].id);
   }, [status, goal, liquid, accounts, searchParams, accountId]);
 
   if (status === 'loading') return <Loading />;

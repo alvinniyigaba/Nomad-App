@@ -38,8 +38,9 @@ export default function WithdrawScreen() {
   const sources = [liquid, ...adminGroupGoals].filter(Boolean);
 
   useEffect(() => {
-    if (status === 'ready' && !accountId && liquid) setAccountId(liquid.id);
-  }, [status, liquid, accountId]);
+    // No liquid fund (it can be closed when empty): start on the first group goal they can withdraw from.
+    if (status === 'ready' && !accountId && (liquid ?? sources[0])) setAccountId((liquid ?? sources[0]).id);
+  }, [status, liquid, accountId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const account = sources.find((a) => a.id === accountId) ?? liquid;
   const available = account ? fromMinor(account.balanceMinor) - fromMinor(account.pledgedMinor) : 0;

@@ -59,7 +59,10 @@
 // resource=update-account (PATCH): edits the name and/or target
 // (targetMinor, targetDate) of one of a user's own (non-group) accounts.
 // Group accounts are excluded on purpose — editing a shared fund is a
-// member decision, not an admin one.
+// member decision, not an admin one. { id, closed: true } closes an empty
+// account (it disappears from the member's app, history kept; refused if it
+// holds anything); { id, closed: false } reopens it. Sheet entries never
+// post into a closed account.
 //
 // resource=create-user (POST): onboards one real pilot user — a users row,
 // a liquid account (no opening entry; a genuinely new user starts at zero,
@@ -116,7 +119,7 @@
 import { readFileSync } from 'fs';
 import bcrypt from 'bcryptjs';
 import { db, query, withTransaction } from '../_lib/db.js';
-import { postEntry } from '../_lib/ledger.js';
+import { getBalanceMinor, postEntry } from '../_lib/ledger.js';
 import { getAccountMembers } from '../_lib/access.js';
 import { getLoansForUser } from '../_lib/loans.js';
 import { getLoansForUser as getMemberLoansForUser, migrateLegacyLoans } from '../_lib/loanAgreements.js';
@@ -132,13 +135,13 @@ async function resolveAccountId(ownerUsername, accountName) {
   if (ownerUsername) {
     const { rows } = await query(
       `SELECT a.id FROM accounts a JOIN users u ON u.id = a.user_id
-       WHERE a.name = $1 AND a.is_group = false AND u.username = $2`,
+       WHERE a.name = $1 AND a.is_group = false AND u.username = $2 AND a.closed_at IS NULL`,
       [accountName, ownerUsername.trim().toLowerCase()],
     );
     return rows[0]?.id ?? null;
   }
   // No owner given -> must be a group goal, and the name must be unambiguous.
-  const { rows } = await query('SELECT id FROM accounts WHERE name = $1 AND is_group = true', [accountName]);
+  const { rows } = await query('SELECT id FROM accounts WHERE name = $1 AND is_group = true AND closed_at IS NULL', [accountName]);
   return rows.length === 1 ? rows[0].id : null;
 }
 
@@ -357,10 +360,32 @@ async function handleAccounts(req, res) {
 /** Renames one of a user's own (non-group) accounts. Group accounts are out of scope — renaming a shared fund is a member decision, not an admin one. */
 async function handleUpdateAccount(req, res) {
   if (req.method !== 'PATCH') return res.status(405).json({ error: 'Method not allowed' });
-  const { id, name, targetMinor, targetDate } = req.body ?? {};
+  const { id, name, targetMinor, targetDate, closed } = req.body ?? {};
   if (typeof id !== 'string') return res.status(400).json({ error: 'id is required' });
+
+  // Closing removes an empty account from the member's app (it stays in the
+  // database with its history; reopening brings it back). Only an individual
+  // account with nothing in it can be closed, so no money is ever hidden.
+  if (typeof closed === 'boolean') {
+    if (name != null || targetMinor != null || targetDate != null) {
+      return res.status(400).json({ error: 'Close or reopen an account on its own, without other changes' });
+    }
+    const { rows: found } = await query('SELECT id, kind, name, is_group, closed_at FROM accounts WHERE id = $1', [id]);
+    const account = found[0];
+    if (!account || account.is_group) return res.status(404).json({ error: 'No such individual account' });
+    if (closed) {
+      const balance = await getBalanceMinor(id);
+      if (balance !== 0n) return res.status(400).json({ error: `This account still holds UGX ${Number(balance / 100n).toLocaleString('en-US')} — it can only be closed when empty` });
+    }
+    const { rows } = await query(
+      `UPDATE accounts SET closed_at = ${closed ? 'COALESCE(closed_at, now())' : 'NULL'} WHERE id = $1 RETURNING id, kind, name, closed_at`,
+      [id],
+    );
+    return res.status(200).json({ ok: true, account: { id: rows[0].id, kind: rows[0].kind, name: rows[0].name, closedAt: rows[0].closed_at } });
+  }
+
   if (name == null && targetMinor == null && targetDate == null) {
-    return res.status(400).json({ error: 'Provide at least one of name, targetMinor, targetDate' });
+    return res.status(400).json({ error: 'Provide at least one of name, targetMinor, targetDate, or closed' });
   }
   if (name != null && (typeof name !== 'string' || !name.trim())) {
     return res.status(400).json({ error: 'name must be a non-empty string' });
