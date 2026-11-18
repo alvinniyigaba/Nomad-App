@@ -70,8 +70,9 @@ export default function JourneySaveScreen() {
   const goal = accounts.find((a) => a.kind === 'goal' && !a.isGroup) ?? null;
   const liquid = accounts.find((a) => a.kind === 'liquid' && !a.isGroup) ?? null;
   const groupGoals = accounts.filter((a) => a.isGroup);
-  // Balances arrive as strings (bigint minor units), so convert before adding.
-  const savedMinor = Number(goal?.balanceMinor ?? 0) + Number(liquid?.balanceMinor ?? 0);
+  // The same "saved" as Home and the balance sheet: own goal and liquid fund
+  // plus this member's own share of each group goal (never the whole pool).
+  const { savedMinor, groupMinor } = model.position;
   const pledged = fromMinor(goal?.pledgedMinor ?? 0);
 
   return (
@@ -83,6 +84,9 @@ export default function JourneySaveScreen() {
         </div>
         <div style={{ marginTop: 6, fontWeight: 600, fontSize: 10, letterSpacing: '0.2em', color: 'var(--taupe-on-ink)' }}>SAVED · {HOME_CURRENCY}</div>
         <div style={{ marginTop: 4, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 34, letterSpacing: '0.02em', lineHeight: 1.05 }}>{money.fmt(fromMinor(savedMinor))}</div>
+        {groupMinor > 0 && (
+          <div style={{ marginTop: 4, fontWeight: 300, fontSize: 12, color: 'var(--text-on-ink-body)' }}>Includes {money.fmt(fromMinor(groupMinor))}, your share of group goals</div>
+        )}
         <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <Tag background="rgba(245,238,226,0.14)" color="var(--text-on-ink)">{RATE_LABEL}</Tag>
           <span style={{ fontWeight: 300, fontSize: 12, color: 'var(--text-on-ink-body)' }}>Interest paid monthly</span>

@@ -8,12 +8,14 @@ import { useMoney } from '../hooks/useMoney';
 import HideBalancesButton from '../components/HideBalancesButton';
 import { paceStatus } from '../utils/pacing';
 import { useAccounts } from '../hooks/useAccounts';
+import { useAppState } from '../state/AppStateContext';
 import { Amount, Card, Eyebrow, ItemMeta, ItemTitle, ProgressBar, Screen, ScreenTitle, Stack } from '../components/ui';
 
 export default function SavingsScreen() {
   const navigate = useNavigate();
   const savingsRateLabel = rates.savings.toFixed(1) + '% p.a.';
   const { status, goal, liquid, groupGoals, error, refetch } = useAccounts();
+  const { user } = useAppState();
   const { fmt, ksh } = useMoney();
 
   if (status === 'loading') return <Loading />;
@@ -21,7 +23,10 @@ export default function SavingsScreen() {
 
   const goalBalance = fromMinor(goal?.balanceMinor ?? 0);
   const liquidBalance = fromMinor(liquid?.balanceMinor ?? 0);
-  const totalBalance = goalBalance + liquidBalance;
+  // Same "saved" as Home: own goal and liquid fund plus this member's own
+  // share of each group goal (never the whole pool).
+  const myGroupShare = groupGoals.reduce((sum, g) => sum + fromMinor(g.members.find((m) => m.username === user?.username)?.contributionMinor ?? 0), 0);
+  const totalBalance = goalBalance + liquidBalance + myGroupShare;
   const pace = goal ? paceStatus({ createdAt: goal.createdAt, targetDate: goal.targetDate, targetMinor: goal.targetMinor, balanceMinor: goal.balanceMinor }) : null;
   const pledged = fromMinor(goal?.pledgedMinor ?? 0);
 
@@ -32,6 +37,7 @@ export default function SavingsScreen() {
         <HideBalancesButton />
       </div>
       <Amount top={18}>{ksh(totalBalance)}</Amount>
+      {myGroupShare > 0 && <ItemMeta top={4}>Includes {fmt(myGroupShare)}, your share of group goals</ItemMeta>}
       <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
         <Badge variant="outline">{savingsRateLabel}</Badge>
         <span style={{ fontWeight: 300, fontSize: 12, color: 'var(--text-muted)' }}>Interest paid monthly</span>
