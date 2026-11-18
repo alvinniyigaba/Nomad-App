@@ -349,3 +349,38 @@ CREATE TABLE IF NOT EXISTS loan_payments (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS loan_payments_agreement_id_idx ON loan_payments(agreement_id, paid_on);
+
+-- ── Nomad Money link (phone app) ──────────────────────────────────────────
+-- Additive only. A linked phone signs in with a device token (stored hashed);
+-- revoking sets revoked_at. Rows the phone writes into member_expenses /
+-- member_income are marked source='nomad_money' (admin rows stay 'admin').
+-- loan_parties.repayment_route is per member, per loan: 'app' (default —
+-- payments recorded in the Nomad App as today) or 'nomad_money' (the phone
+-- records this member's payments on that loan, through recordPayment, so the
+-- usual confirm step and idempotency apply).
+CREATE TABLE IF NOT EXISTS money_devices (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash text NOT NULL UNIQUE,
+  label text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  last_seen_at timestamptz,
+  revoked_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS money_devices_user_id_idx ON money_devices(user_id);
+
+CREATE TABLE IF NOT EXISTS money_sync_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  device_id uuid REFERENCES money_devices(id) ON DELETE SET NULL,
+  writes int NOT NULL,
+  summary jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE member_expenses ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'admin';
+ALTER TABLE member_income ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'admin';
+ALTER TABLE loan_parties ADD COLUMN IF NOT EXISTS repayment_route text NOT NULL DEFAULT 'app';
+DO $$ BEGIN
+  ALTER TABLE loan_parties ADD CONSTRAINT loan_parties_repayment_route_check CHECK (repayment_route IN ('app', 'nomad_money'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
