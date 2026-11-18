@@ -8,7 +8,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Username and password are required' });
   }
 
-  const user = await verifyPassword(username.trim().toLowerCase(), password);
+  // Passwords are generated without spaces, so spaces or a line break at
+  // either end can only have come from copying it out of a message.
+  const user = await verifyPassword(username.trim().toLowerCase(), password.trim());
   if (!user) return res.status(401).json({ error: 'Invalid username or password' });
 
   await createSession(user.id, res);

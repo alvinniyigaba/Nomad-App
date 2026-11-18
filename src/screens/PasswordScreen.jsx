@@ -35,7 +35,7 @@ export default function PasswordScreen() {
     if (!username || !password || submitting) return;
     setSubmitting(true);
     setError('');
-    const result = await login(username.trim(), password);
+    const result = await login(username.trim(), password.trim());
     setSubmitting(false);
     if (!result.ok) {
       setError(result.error);
