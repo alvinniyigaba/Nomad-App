@@ -2,24 +2,13 @@ import { useState } from 'react';
 import { admin } from '../../api.js';
 import { ARCHETYPES, ARCHETYPE_BY_ID } from '../../../data/archetypes.js';
 import { toMonthlyMinor, independenceRatio } from '../../../utils/independence.js';
-import { dateTime, day, isoDate, todayKampala, toMinor, ugx } from '../../money.js';
+import { dateTime, day, todayKampala, toMinor, ugx } from '../../money.js';
+import { current } from '../../stage.js';
 import { Badge, Btn, Empty, Field, Modal, Notice, Panel, Result, useAction } from '../../ui.jsx';
 
 const CATEGORIES = { household: 'Household', rent: 'Rent', school_fees: 'School fees', medical: 'Medical', transport: 'Transport', other: 'Other' };
 const FREQUENCIES = { monthly: 'Monthly', termly: 'Termly (3 a year)', yearly: 'Yearly' };
 
-/** The figure in force today for each key: the latest row that has started, unless it retired the item (amount 0). */
-function current(rows, keyOf) {
-  const today = todayKampala();
-  const byKey = new Map();
-  for (const r of rows) {
-    if (isoDate(r.effectiveFrom) > today) continue;
-    const key = keyOf(r);
-    const prev = byKey.get(key);
-    if (!prev || isoDate(r.effectiveFrom) > isoDate(prev.effectiveFrom) || (isoDate(r.effectiveFrom) === isoDate(prev.effectiveFrom) && r.createdAt > prev.createdAt)) byKey.set(key, r);
-  }
-  return [...byKey.values()].filter((r) => BigInt(r.amountMinor) > 0n);
-}
 
 /**
  * Appends a cost or income row. Nothing is edited: a new row with a later
