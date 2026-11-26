@@ -1,6 +1,6 @@
 # Nomad Financial Services — Handover
 
-Last updated: 2026-09-01
+Last updated: 2026-11-26
 
 ## What this is
 
@@ -68,7 +68,7 @@ EXISTS` + `ALTER TABLE ADD COLUMN IF NOT EXISTS`, applied via
 - `kyc.js` — KYC status
 - `external-holdings.js` — user-facing read of a user's holdings (the admin write path is separate, see below). `?resource=loans` on the same function returns their private loans with repayments and totals (`owedToYouMinor`, `youOweMinor`, open loans only) — shared function because of the 12-function Hobby cap; both are read-only and user-scoped
 
-**Admin-only** (`api/admin/index.js`, gated by `ADMIN_TOKEN` query param or `CRON_SECRET` bearer token), dispatched by `?resource=`:
+**Admin-only** (`api/admin/index.js`, gated by `ADMIN_TOKEN` query param, `CRON_SECRET` bearer token, or a signed-in staff member from the admin console — see "Admin console" below), dispatched by `?resource=`:
 - `migrate` (GET) — applies `db/schema.sql`
 - `external-holdings` (GET/POST/PATCH/DELETE) — create/update a holding; POST a dated snapshot via `snapshotDate`+`snapshotValueMinor` on PATCH for `nomad`-managed ones
 - `user-profile` (PATCH) — bio-data fields
@@ -78,6 +78,70 @@ EXISTS` + `ALTER TABLE ADD COLUMN IF NOT EXISTS`, applied via
 - `loans` (GET `?username` / POST / PATCH) — a member's private loans; POST takes `{ username, loanRef, direction, counterparty, principalMinor, terms?, startDate?, dueDate?, status?, notes? }` and returns 409 if that `loanRef` already exists for them
 - `loan-repayments` (POST) — `{ loanId, amountMinor, paidOn, memo?, idempotencyKey? }`, append-only
 - `reset-credentials` (POST) — `{ username, password?, pin? }`: sets a new password and/or PIN (stored only as bcrypt hashes, never echoed) and revokes all of that member's sessions. Use `bash scripts/reset-logins.sh <username…|all>` from your own machine: it generates the new logins locally and prints them once, so they never go through GitHub.
+
+## Admin console (`/admin`)
+
+A desk tool for the fund manager at `https://nomad-app-hntl.vercel.app/admin`:
+an overview of every member's position with a "needs attention" list, a
+page per member (savings, investments, loans, costs/income/stage, profile,
+access & KYC, change log), adding members, running the syncs, and a log of
+every change. Everything it does goes through the existing admin function
+(`api/admin/index.js`), so it adds **no serverless function** (still 12 of
+12 on Hobby).
+
+**Where the code is.** `admin.html` + `src/admin/` — a second page in the
+same Vite build (`build.rollupOptions.input` in `vite.config.js`), not part
+of the member app. `vercel.json` rewrites `/admin` and `/admin/*` to
+`admin.html` (before the member app's catch-all); in dev a small plugin in
+`vite.config.js` does the same. The PWA ignores it: `admin.html` and
+`assets/admin-*` aren't precached and the service worker's offline fallback
+skips `/admin` and `/api/`, so members' phones never download it. Server
+side: `api/_lib/adminConsole.js` (who's calling, the audit log, and the
+`overview` / `member` / `audit-log` read models).
+
+**Who can use it.** A member with `users.staff_role` set (only
+`fund_manager` exists today), signed in with their own password + PIN — the
+same login as the app. The console sends `X-Nomad-Admin: 1` on every call;
+the admin function only accepts the session cookie when that header is
+there, so a link or form on another site can't act with an admin's cookie.
+Each console request keeps the PIN fresh, so the 15-minute PIN timeout
+means 15 minutes idle. `ADMIN_TOKEN` and `CRON_SECRET` work exactly as
+before. Granting admin access needs the token (a staff login can't grant
+it):
+
+```bash
+bash scripts/make-staff.sh niyigaba
+```
+
+(applies the schema first, so it's also the switch-on step after
+deploying). `--remove` as a second argument takes access away.
+
+**Change log.** `admin_audit_log` gets one row per change made through the
+admin function — every non-GET, plus the GETs that write (`migrate`,
+`sync-sheet`, `sync-investments`) — whoever made it: console (`staff`, with
+the username), `token`, or `cron`. Request and response bodies are kept
+with `password`, `pin` and `token` fields replaced by `[redacted]`; bodies
+over ~8 KB are replaced by their size. The response is held back until the
+row is written. A logging failure (e.g. before `migrate`) never blocks the
+change itself.
+
+**New admin resources:** `whoami` (no auth; for the sign-in screen),
+`overview`, `member` (`?username`), `audit-log` (`?limit&username`), `staff`
+(POST `{ username, role|null }`, token only).
+
+**Numbers.** The overview and member page use the same split as the
+member's own Home: savings = liquid + goals + their own contributions to
+group goals; invested = Nomad holdings at their latest snapshot + active
+external holdings' balance; loans count only once everyone has accepted
+(`getLoansForUser`). The overview's "needs attention" flags: overdue loans,
+behind on a repayment plan, loan answers/payments waiting on the member,
+KYC incomplete, never signed in, no sign-in for 30 days.
+
+**What it deliberately doesn't do:** delete members (`delete-user` is still
+API-only), edit KYC (no endpoint), edit or delete loans (members own them),
+or clear a field (the existing PATCH endpoints keep a value unless given a
+new one). New passwords/PINs (add member, reset login) are generated in
+the browser, shown once, and stored only as bcrypt hashes.
 
 ## Google Sheets integration
 

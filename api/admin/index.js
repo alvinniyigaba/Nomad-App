@@ -116,6 +116,17 @@
 // resource=member-finances (GET ?username / POST): a member's day-to-day
 // costs, declared income and any stage override — what their journey
 // screens are derived from. Append-only; see handleMemberFinances.
+//
+// Admin console (/admin, see api/_lib/adminConsole.js). Besides the token
+// and Vercel Cron, a signed-in member with a staff_role may call every
+// resource here from the console, which sends X-Nomad-Admin: 1. Every
+// change, whoever makes it, is written to admin_audit_log.
+// resource=whoami (GET): no auth needed; who the browser is signed in as.
+// resource=overview (GET): every member's position and flags, fund totals.
+// resource=member (GET ?username): everything on record for one member.
+// resource=audit-log (GET ?limit&username): the change log, newest first.
+// resource=staff (POST { username, role|null }): grants or removes admin
+// access. Token only — see scripts/make-staff.sh.
 import { readFileSync } from 'fs';
 import bcrypt from 'bcryptjs';
 import { db, query, withTransaction } from '../_lib/db.js';
@@ -124,6 +135,7 @@ import { getAccountMembers } from '../_lib/access.js';
 import { getLoansForUser } from '../_lib/loans.js';
 import { getLoansForUser as getMemberLoansForUser, migrateLegacyLoans } from '../_lib/loanAgreements.js';
 import { createDevice } from '../_lib/moneyLink.js';
+import { authorizeAdmin, whoami, withAudit, handleStaff, handleOverview, handleMember, handleAuditLog } from '../_lib/adminConsole.js';
 
 async function resolveUserId(username) {
   if (!username) return null;
@@ -979,16 +991,18 @@ async function handleMoneyDevice(req, res) {
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
-function isAuthorized(req) {
-  if (process.env.ADMIN_TOKEN && req.query.token === process.env.ADMIN_TOKEN) return true;
-  const authHeader = req.headers.authorization || '';
-  if (process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`) return true;
-  return false;
+export default async function handler(req, res) {
+  if (req.query.resource === 'whoami') return whoami(req, res);
+  const actor = await authorizeAdmin(req);
+  if (!actor) return res.status(403).json({ error: 'Forbidden' });
+  return withAudit(req, res, actor, () => dispatch(req, res, actor));
 }
 
-export default async function handler(req, res) {
-  if (!isAuthorized(req)) return res.status(403).json({ error: 'Forbidden' });
-
+async function dispatch(req, res, actor) {
+  if (req.query.resource === 'overview') return handleOverview(req, res);
+  if (req.query.resource === 'member') return handleMember(req, res);
+  if (req.query.resource === 'audit-log') return handleAuditLog(req, res);
+  if (req.query.resource === 'staff') return handleStaff(req, res, actor);
   if (req.query.resource === 'migrate') return handleMigrate(req, res);
   if (req.query.resource === 'external-holdings') return handleExternalHoldings(req, res);
   if (req.query.resource === 'sync-sheet') return handleSyncSheet(req, res);
@@ -1008,6 +1022,6 @@ export default async function handler(req, res) {
   if (req.query.resource === 'migrate-legacy-loans') return handleMigrateLegacyLoans(req, res);
   if (req.query.resource === 'money-device') return handleMoneyDevice(req, res);
   return res.status(400).json({
-    error: 'Unknown resource. Use ?resource=migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, login-stats, reset-credentials, loans, loan-repayments, member-finances, loan-agreements, migrate-legacy-loans, or money-device',
+    error: 'Unknown resource. Use ?resource=overview, member, audit-log, staff, whoami, migrate, external-holdings, sync-sheet, sync-investments, post-entries, user-profile, accounts, update-account, create-user, delete-user, login-stats, reset-credentials, loans, loan-repayments, member-finances, loan-agreements, migrate-legacy-loans, or money-device',
   });
 }

@@ -25,3 +25,9 @@ matching the source design.
 npm install
 npm run dev
 ```
+
+## Admin console
+
+`/admin` (`admin.html`, `src/admin/`) is the fund manager's desk tool. Grant
+access with `bash scripts/make-staff.sh <username>`, then sign in there with
+that member's own password and PIN. See HANDOVER.md, "Admin console".

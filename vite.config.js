@@ -3,11 +3,33 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import apiPlugin from './dev/apiPlugin.mjs'
 
+// The admin console is a second page (admin.html) in the same build, served
+// at /admin. In dev, send /admin and its sub-routes to that page rather than
+// the member app's index.html.
+function adminPage() {
+  return {
+    name: 'nomad-admin-page',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        if (/^\/admin(\/|\?|$)/.test(req.url)) req.url = '/admin.html';
+        next();
+      });
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      input: { main: 'index.html', admin: 'admin.html' },
+    },
+  },
   plugins: [
     react(),
     apiPlugin(),
+    adminPage(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/favicon-16.png', 'icons/favicon-32.png', 'icons/apple-touch-icon.png'],
@@ -30,6 +52,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
+        // Members' phones never download or cache the admin console, and the
+        // member app's offline fallback must not answer /admin or /api.
+        globIgnores: ['admin.html', 'assets/admin-*'],
+        navigateFallbackDenylist: [/^\/admin/, /^\/api\//],
       },
     }),
   ],

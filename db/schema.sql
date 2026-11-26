@@ -384,3 +384,30 @@ ALTER TABLE loan_parties ADD COLUMN IF NOT EXISTS repayment_route text NOT NULL 
 DO $$ BEGIN
   ALTER TABLE loan_parties ADD CONSTRAINT loan_parties_repayment_route_check CHECK (repayment_route IN ('app', 'nomad_money'));
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Admin console. staff_role marks a user who may use /admin with their own
+-- password + PIN login, instead of the shared ADMIN_TOKEN. NULL for every
+-- ordinary member. Granted only with the token (resource=staff).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS staff_role text;
+DO $$ BEGIN
+  ALTER TABLE users ADD CONSTRAINT users_staff_role_check CHECK (staff_role IN ('fund_manager'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Append-only record of every change made through the admin API: who
+-- (a staff member, the token, or the daily cron), what, to whom, and the
+-- outcome. Request bodies are stored with passwords, PINs and tokens removed.
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_kind text NOT NULL CHECK (actor_kind IN ('staff', 'token', 'cron')),
+  actor_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  actor_username text,
+  resource text NOT NULL,
+  method text NOT NULL,
+  target_username text,
+  status int NOT NULL,
+  request jsonb,
+  response jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS admin_audit_log_created_at_idx ON admin_audit_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS admin_audit_log_target_idx ON admin_audit_log(target_username, created_at DESC);
