@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { admin } from '../../api.js';
 import { ago, dateTime, ugx } from '../../money.js';
-import { Badge, Empty, LoadError, Loading, Page, Panel, Stat, Tabs, useLoad } from '../../ui.jsx';
+import { MAX_LEVEL } from '../../../data/archetypes.js';
+import { memberJourney } from '../../stage.js';
+import { Badge, Empty, Hero, LoadError, Loading, Page, Panel, RouteBar, Tabs, useLoad } from '../../ui.jsx';
 import Accounts from './Accounts.jsx';
 import Investments from './Investments.jsx';
 import Loans from './Loans.jsx';
@@ -20,6 +22,52 @@ function position(data) {
   const youOwe = BigInt(data.loans.totals.youOweMinor);
   const savings = ownMinor + groupMinor;
   return { savings, groupMinor, investedMinor, owedToYou, youOwe, net: savings + investedMinor + owedToYou - youOwe };
+}
+
+const PLACED_BY = {
+  override: 'Set by Nomad',
+  balance_sheet: 'Placed by balance sheet',
+  age: 'Placed by age — no costs on record yet',
+  default: 'Starting point — no costs on record yet',
+};
+
+/** Where the member is on the trail, worked out exactly as their app does. */
+function StageCard({ data, onOpen }) {
+  let model;
+  try {
+    model = memberJourney(data);
+  } catch {
+    return null;
+  }
+  const { stage, independence, placement } = model;
+  return (
+    <section className="stage-card" aria-label="Stage on the trail">
+      <div className="hero-eyebrow" style={{ marginTop: 0 }}>
+        On the trail
+      </div>
+      <div className="stage-top">
+        <div>
+          <div className="stage-name">{stage.name}</div>
+          <div className="stage-sub">
+            Stage {stage.level} of {MAX_LEVEL} · {stage.terrain}
+          </div>
+        </div>
+        <div className="stage-pct">
+          {independence == null ? '—' : `${Math.round(independence * 100)}%`}
+          <small>independent</small>
+        </div>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <RouteBar value={independence} onInk />
+      </div>
+      <div className="stage-foot">
+        <span>{PLACED_BY[placement.source] ?? ''}</span>
+        <button type="button" onClick={onOpen}>
+          Costs, income &amp; stage →
+        </button>
+      </div>
+    </section>
+  );
 }
 
 export default function MemberPage() {
@@ -53,21 +101,33 @@ export default function MemberPage() {
   const props = { data, username, reload };
 
   return (
-    <Page
-      title={`${p.name} ${p.surname}`}
-      subtitle={
-        <>
-          <Link to="/members">Members</Link> / @{p.username} · member since {p.memberSince} · last sign-in {ago(data.logins.last_login)}{' '}
-          {p.staffRole && <Badge tone="ink">Admin</Badge>}
-        </>
-      }
-    >
-      <div className="stats">
-        <Stat tone="ink" label="Net worth" value={ugx(pos.net)} hint="Savings + invested + owed to them − owed by them" />
-        <Stat label="Savings" value={ugx(pos.savings)} hint={pos.groupMinor ? `includes ${ugx(pos.groupMinor)} share of group goals` : 'Liquid and goals'} />
-        <Stat label="Invested" value={ugx(pos.investedMinor)} hint={`${activeHoldings} active holding${activeHoldings === 1 ? '' : 's'}`} />
-        <Stat label="Loans" value={ugx(pos.owedToYou - pos.youOwe, { signed: true })} hint={`${ugx(pos.owedToYou)} owed to them · ${ugx(pos.youOwe)} they owe`} />
-      </div>
+    <div className="page">
+      <Hero aside={<StageCard data={data} onOpen={() => setTab('finances')} />}>
+        <div className="hero-crumb">
+          <Link to="/members">Members</Link> / @{p.username} {p.staffRole && <span className="hero-tag">Admin</span>}
+        </div>
+        <h1 className="hero-title">
+          {p.name} {p.surname}
+        </h1>
+        <div className="hero-meta">
+          Member since {p.memberSince ?? '—'} · last sign-in {ago(data.logins.last_login)}
+        </div>
+        <div className="hero-eyebrow">Net worth · UGX</div>
+        <div className="hero-figure" title="Savings + invested + owed to them − owed by them">
+          {ugx(pos.net)}
+        </div>
+        <div className="hero-chips">
+          <span className="hero-chip" title={pos.groupMinor ? `includes ${ugx(pos.groupMinor)} share of group goals` : 'Liquid and goals'}>
+            Savings {ugx(pos.savings)}
+          </span>
+          <span className="hero-chip" title={`${activeHoldings} active holding${activeHoldings === 1 ? '' : 's'}`}>
+            Invested {ugx(pos.investedMinor)}
+          </span>
+          <span className="hero-chip" title={`${ugx(pos.owedToYou)} owed to them · ${ugx(pos.youOwe)} they owe`}>
+            Loans {ugx(pos.owedToYou - pos.youOwe, { signed: true })}
+          </span>
+        </div>
+      </Hero>
 
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
@@ -101,6 +161,6 @@ export default function MemberPage() {
           )}
         </Panel>
       )}
-    </Page>
+    </div>
   );
 }
