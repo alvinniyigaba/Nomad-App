@@ -1,12 +1,13 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { admin } from '../api.js';
 import { ago, dateTime, ugx } from '../money.js';
-import { Badge, Empty, LoadError, Loading, Page, Panel, Signed, Stat, useLoad } from '../ui.jsx';
+import { greeting } from '../../utils/format.js';
+import { Badge, Empty, Glyph, Hero, LoadError, Loading, Page, Panel, Signed, useLoad } from '../ui.jsx';
 
 const ATTENTION_TONE = { 'loan-overdue': 'danger', 'loan-behind': 'danger', 'loan-waiting': 'gold', kyc: 'gold', quiet: 'neutral', 'never-logged-in': 'neutral' };
 const ATTENTION_RANK = { 'loan-overdue': 0, 'loan-behind': 1, 'loan-waiting': 2, kyc: 3, 'never-logged-in': 4, quiet: 5 };
 
-export default function Overview() {
+export default function Overview({ me }) {
   const { data, error, loading, reload } = useLoad(() => admin('overview'), []);
   const navigate = useNavigate();
 
@@ -21,46 +22,91 @@ export default function Overview() {
     .sort((a, b) => Math.min(...a.attention.map((x) => ATTENTION_RANK[x.kind] ?? 9)) - Math.min(...b.attention.map((x) => ATTENTION_RANK[x.kind] ?? 9)));
 
   return (
-    <Page
-      title="Overview"
-      subtitle="Everything on record across the pilot. Figures are informational — the same numbers members see in their app."
-      actions={<button className="btn btn-outline" onClick={reload} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>}
-    >
-      <div className="stats">
-        <Stat tone="ink" label="On record" value={ugx(onRecord)} hint="Savings + investments, all members" />
-        <Stat label="Savings" value={ugx(t.savingsMinor)} hint="Liquid, goals and group-goal shares" />
-        <Stat label="Invested" value={ugx(invested)} hint={`Nomad ${ugx(t.nomadInvestedMinor)} · external ${ugx(t.externalInvestedMinor)}`} />
-        <Stat label="Private loans" value={ugx(t.owedToMembersMinor)} hint={`owed to members · ${ugx(t.owedByMembersMinor)} owed by members`} />
-        <Stat label="Members" value={data.memberCount} hint={`${data.activeLast30Days} signed in within 30 days`} />
-      </div>
+    <div className="page">
+      <Hero
+        aside={
+          <div className="hero-actions">
+            <Link to="/members/new" className="btn btn-gold btn-lg">
+              <Glyph name="add" size={16} />
+              Add member
+            </Link>
+            <button className="btn btn-outline btn-lg" onClick={reload} disabled={loading}>
+              {loading ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
+        }
+      >
+        <div className="hero-greeting">
+          {greeting()}, {me?.name || me?.username}
+        </div>
+        <div className="hero-eyebrow">On record across the pilot · UGX</div>
+        <div className="hero-figure">{ugx(onRecord)}</div>
+        <div className="hero-chips">
+          <span className="hero-chip" title="Liquid, goals and group-goal shares">
+            Savings {ugx(t.savingsMinor)}
+          </span>
+          <span className="hero-chip" title={`Nomad ${ugx(t.nomadInvestedMinor)} · external ${ugx(t.externalInvestedMinor)}`}>
+            Invested {ugx(invested)}
+          </span>
+          <span className="hero-chip" title={`Owed to members · ${ugx(t.owedByMembersMinor)} owed by members`}>
+            Private loans {ugx(t.owedToMembersMinor)}
+          </span>
+          <Link to="/members" className="hero-chip">
+            {data.memberCount} members · {data.activeLast30Days} active in 30 days
+          </Link>
+        </div>
+      </Hero>
+
+      <nav className="shortcuts" aria-label="Shortcuts">
+        <Link to="/members/new" className="shortcut">
+          <span className="shortcut-icon"><Glyph name="addMember" /></span>
+          Add member
+        </Link>
+        <Link to="/members" className="shortcut">
+          <span className="shortcut-icon"><Glyph name="members" /></span>
+          All members
+        </Link>
+        <Link to="/activity" className="shortcut">
+          <span className="shortcut-icon"><Glyph name="log" /></span>
+          Change log
+        </Link>
+        <Link to="/tools" className="shortcut">
+          <span className="shortcut-icon"><Glyph name="sync" /></span>
+          Syncs &amp; tools
+        </Link>
+      </nav>
+
+      <p className="page-sub small">Figures are informational — the same numbers members see in their app.</p>
 
       <div className="grid-2">
-        <Panel title={`Needs attention (${needing.length})`} flush>
+        <Panel title="Needs attention" flush actions={<span className="small muted">{needing.length} member{needing.length === 1 ? '' : 's'}</span>}>
           {needing.length === 0 ? (
             <Empty>Nothing needs a look right now.</Empty>
           ) : (
             <ul className="attention-list">
               {needing.map((m) => (
                 <li key={m.username}>
-                  <Link to={`/members/${m.username}`} className="cell-title">
-                    {m.name} {m.surname}
+                  <Link to={`/members/${m.username}`}>
+                    <span className="cell-title">
+                      {m.name} {m.surname}
+                    </span>
+                    <span className="attention-items">
+                      {[...m.attention]
+                        .sort((a, b) => (ATTENTION_RANK[a.kind] ?? 9) - (ATTENTION_RANK[b.kind] ?? 9))
+                        .map((a) => (
+                          <Badge key={a.kind} tone={ATTENTION_TONE[a.kind]}>
+                            {a.text}
+                          </Badge>
+                        ))}
+                    </span>
                   </Link>
-                  <span className="attention-items">
-                    {[...m.attention]
-                      .sort((a, b) => (ATTENTION_RANK[a.kind] ?? 9) - (ATTENTION_RANK[b.kind] ?? 9))
-                      .map((a) => (
-                        <Badge key={a.kind} tone={ATTENTION_TONE[a.kind]}>
-                          {a.text}
-                        </Badge>
-                      ))}
-                  </span>
                 </li>
               ))}
             </ul>
           )}
         </Panel>
 
-        <Panel title="Latest ledger entries" flush actions={<Link to="/members" className="small">All members →</Link>}>
+        <Panel title="Latest entries" flush actions={<Link to="/members" className="small">All members →</Link>}>
           {data.recentEntries.length === 0 ? (
             <Empty>No ledger entries yet.</Empty>
           ) : (
@@ -116,6 +162,6 @@ export default function Overview() {
           </tbody>
         </table>
       </Panel>
-    </Page>
+    </div>
   );
 }

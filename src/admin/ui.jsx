@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import TerrainPattern from '../components/ds/TerrainPattern.jsx';
 
 /** Loads data for a screen. `reload()` refetches without blanking what's already shown. */
 export function useLoad(load, deps) {
@@ -173,4 +174,62 @@ export function Tabs({ tabs, active, onChange }) {
 export function Signed({ children, minor }) {
   const n = minor == null ? 0n : BigInt(minor);
   return <span className={n < 0n ? 'neg' : n > 0n ? 'pos' : ''}>{children}</span>;
+}
+
+/** The brand's terrain contours and route, laid behind an ink surface. */
+export function Terrain({ width = 1360, height = 320 }) {
+  return (
+    <div className="terrain">
+      <TerrainPattern theme="ink" width={width} height={height} />
+    </div>
+  );
+}
+
+/**
+ * The ink hero that continues the top bar on Overview and a member's page —
+ * the member app's Home header, scaled to the desk.
+ */
+export function Hero({ children, aside }) {
+  return (
+    <section className="hero">
+      <Terrain />
+      <div className="hero-inner">
+        <div>{children}</div>
+        {aside}
+      </div>
+    </section>
+  );
+}
+
+/** Progress along the route, ending at a hollow waypoint. `value` is 0–1; null shows a dashed, unknown bar. */
+export function RouteBar({ value, onInk = false }) {
+  if (value == null) return <div className={`route-bar unknown${onInk ? ' on-ink' : ''}`} />;
+  const pct = `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
+  return (
+    <div className={`route-bar${onInk ? ' on-ink' : ''}`} role="img" aria-label={`${pct} of the way`}>
+      <span style={{ width: pct }} />
+      <i style={{ left: pct }} />
+    </div>
+  );
+}
+
+// Console glyphs, drawn like the member app's set (components/ui/Icon.jsx):
+// 1.6px strokes on a 24px grid, the hollow waypoint in ochre.
+const GLYPHS = {
+  addMember: ['M3 20 C3 16 6 14 10 14 C14 14 17 16 17 20 M10 11 A3.5 3.5 0 1 0 10 4 A3.5 3.5 0 1 0 10 11 M19.5 8 V14 M16.5 11 H22.5'],
+  members: ['M4 6 H20 M4 12 H14 M4 18 H11', [18, 17, 2.2]],
+  log: ['M12 4 A8 8 0 1 0 20 12 M12 8 V12 L15 14', [19, 6, 2]],
+  sync: ['M19 12 A7 7 0 0 1 6.5 16.5 M5 12 A7 7 0 0 1 17.5 7.5 M17.5 3.5 V7.5 H13.5 M6.5 20.5 V16.5 H10.5'],
+  search: ['M10.5 17 A6.5 6.5 0 1 0 10.5 4 A6.5 6.5 0 1 0 10.5 17 M20 20 L15.5 15.5'],
+  add: ['M12 6 V18 M6 12 H18'],
+};
+
+export function Glyph({ name, size = 20, color = 'currentColor', accent = 'var(--ochre-gold)' }) {
+  const [d, waypoint] = GLYPHS[name];
+  return (
+    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none', display: 'block' }}>
+      <path d={d} />
+      {waypoint && <circle cx={waypoint[0]} cy={waypoint[1]} r={waypoint[2]} stroke={accent} />}
+    </svg>
+  );
 }

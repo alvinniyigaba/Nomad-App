@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
 import { auth, onSignedOut } from './api.js';
-import { Loading } from './ui.jsx';
+import { Loading, Terrain } from './ui.jsx';
 import SignIn from './screens/SignIn.jsx';
 import Overview from './screens/Overview.jsx';
 import Members from './screens/Members.jsx';
@@ -41,35 +41,39 @@ export default function AdminApp() {
   return (
     <BrowserRouter basename="/admin">
       <div className="shell">
-        <aside className="sidebar">
-          <div className="brand">
-            NOMAD
-            <small>ADMIN CONSOLE</small>
+        <header className="topbar">
+          <Terrain height={90} />
+          <div className="topbar-inner">
+            <div className="topbar-left">
+              <div className="brand">
+                NOMAD<small>ADMIN</small>
+              </div>
+              <nav className="nav" aria-label="Console">
+                <NavLink to="/" end>
+                  Overview
+                </NavLink>
+                <NavLink to="/members">Members</NavLink>
+                <NavLink to="/activity">Change log</NavLink>
+                <NavLink to="/tools">Syncs &amp; tools</NavLink>
+              </nav>
+            </div>
+            <div className="account">
+              <button onClick={signOut}>Sign out</button>
+              <span className="account-initial" title={`Signed in as ${me.name || me.username}`} aria-label={`Signed in as ${me.name || me.username}`}>
+                {(me.name || me.username || '?').charAt(0).toUpperCase()}
+              </span>
+            </div>
           </div>
-          <nav className="nav">
-            <NavLink to="/" end>
-              Overview
-            </NavLink>
-            <NavLink to="/members">Members</NavLink>
-            <NavLink to="/activity">Change log</NavLink>
-            <NavLink to="/tools">Syncs &amp; tools</NavLink>
-          </nav>
-          <div className="sidebar-foot">
-            <span>
-              Signed in as <strong>{me.name || me.username}</strong>
-            </span>
-            <button onClick={signOut}>Sign out</button>
-          </div>
-        </aside>
+        </header>
         <main className="main">
           <Routes>
-            <Route path="/" element={<Overview />} />
+            <Route path="/" element={<Overview me={me} />} />
             <Route path="/members" element={<Members />} />
             <Route path="/members/new" element={<AddMember />} />
             <Route path="/members/:username" element={<MemberPage />} />
             <Route path="/activity" element={<Activity />} />
             <Route path="/tools" element={<Tools />} />
-            <Route path="*" element={<Overview />} />
+            <Route path="*" element={<Overview me={me} />} />
           </Routes>
         </main>
       </div>
